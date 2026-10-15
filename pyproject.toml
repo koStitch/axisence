@@ -1,0 +1,65 @@
+[project]
+name = "axisence"
+version = "0.1.0"
+description = "Competitor analysis for independent childcare providers."
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "django>=6.1.2,<6.2",
+    "psycopg[binary]>=3.3.6",
+]
+
+[tool.ruff]
+extend-exclude = ["migrations"]
+force-exclude = true
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "UP",
+    "B",
+    "C4",
+    "SIM",
+    "N",
+    "DJ",
+    "DTZ",
+    "T20",
+    "ANN",
+    "S",
+    "PT",
+    "PLW0603",
+    "RUF",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "S101"]
+
+[tool.pytest]
+DJANGO_SETTINGS_MODULE = "config.settings"
+testpaths = ["tests"]
+addopts = ["--strict-config", "--strict-markers"]
+
+[tool.mypy]
+strict = true
+plugins = ["mypy_django_plugin.main"]
+exclude = ["^scratch/", "/migrations/"]
+
+[[tool.mypy.overrides]]
+module = ["tests", "tests.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+check_untyped_defs = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings"
+
+[dependency-groups]
+dev = [
+    "django-stubs[compatible-mypy]>=6.1.2",
+    "pytest>=9.1.1",
+    "pytest-django>=4.14.0",
+    "ruff>=0.17.1",
+]

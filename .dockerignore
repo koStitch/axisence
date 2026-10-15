@@ -1,0 +1,6 @@
+# The image needs only these three files. Everything else stays out of the build
+# context, including data/, .env, .venv/, .git/, and caches.
+*
+!.python-version
+!pyproject.toml
+!uv.lock

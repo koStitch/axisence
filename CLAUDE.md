@@ -24,9 +24,9 @@ Prefer designs that keep later steps open, but do not build ahead of the current
 
 ## Stack
 
-The project files are authoritative: `pyproject.toml`, `uv.lock`, `.python-version`, and `compose.yaml` override this list whenever they disagree.
+The project files are authoritative: `pyproject.toml`, `uv.lock`, `.python-version`, `compose.yaml`, and `Dockerfile` override this list whenever they disagree.
 
-- Python, managed with `uv`. Run everything through `uv run …`. Never `pip install` into the environment and never switch interpreters.
+- Python, managed with `uv`. Django, the tests, every `manage.py` command, and mypy run only inside the Compose `web` service, as `docker compose run --rm web <command>`, because GeoDjango's GDAL and GEOS libraries exist only in that image. `uv` and ruff run on the host: `uv sync`, `uv run ruff check`, and `uv run ruff format`. Never `pip install` into the environment and never switch interpreters.
 - Django with GeoDjango (`django.contrib.gis`).
 - PostgreSQL with PostGIS, run locally through Docker Compose.
 - Tests: `pytest` with `pytest-django`. Lint and format: `ruff`.
@@ -38,13 +38,13 @@ When authoring or reviewing Python, consult the `django-python` skill under `.cl
 Claude may run, without asking:
 
 1. Tests, `ruff check`, `ruff format`, and type checks.
-2. `manage.py` commands against the local Docker database: `check`, `makemigrations`, `migrate`, `showmigrations`, and the project's own management commands.
-3. `docker compose up -d`, `ps`, `logs`, and `stop`.
+2. `manage.py` commands against the local Docker database, in the form `docker compose run --rm web python manage.py <command>`: `check`, `makemigrations`, `migrate`, `showmigrations`, and the project's own management commands.
+3. `docker compose up -d`, `build`, `ps`, `logs`, and `stop`.
 4. Read-only requests to the public data APIs named in `Docs/Domain/DataSources.md`, at modest volume, for exploration and development.
 
 Claude must not:
 
-1. Deploy anything, or run anything against a database that is not the local Docker one. If `DATABASE_URL` or the settings point anywhere other than `localhost`, `127.0.0.1`, or a Compose service, stop and ask.
+1. Deploy anything, or run anything against a database that is not the local Docker one. If `POSTGRES_HOST` or the settings point anywhere other than `localhost`, `127.0.0.1`, or a Compose service, stop and ask.
 2. Destroy local data: no `docker compose down -v`, `docker volume rm`, `docker volume prune`, `docker system prune`, `manage.py flush`, or dropping databases. State what should be reset and the user runs it.
 3. Add, remove, or upgrade dependencies. Propose the change — the package, why it is needed, and the alternative considered — and the user runs the `uv` command.
 4. Read, create, or edit `.env` or any other file holding secrets. `.env.example` is the documented template: keep it current with every new setting, with placeholder values only.

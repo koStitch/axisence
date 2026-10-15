@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgis/postgis:18-3.6
+    env_file: .env
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # From PostgreSQL 18 the image keeps its data under /var/lib/postgresql/18/docker,
+      # so the volume is mounted at /var/lib/postgresql, never /var/lib/postgresql/data.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      # TCP on 127.0.0.1 rather than the Unix socket: during first initialization the image
+      # runs a temporary server that listens only on the socket.
+      test: pg_isready --host=127.0.0.1 --username="$${POSTGRES_USER}" --dbname="$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  web:
+    build: .
+    env_file: .env
+    # The development server. Starting the services never applies migrations.
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    init: true
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

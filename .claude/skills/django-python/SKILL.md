@@ -19,7 +19,7 @@ Everything in `CLAUDE.md` still applies; this adds the traps a model falls into 
 
 ## Models and migrations
 
-- One migration per logical change, named with `makemigrations --name <descriptive_name>`.
+- One migration per logical change, named with `makemigrations <app_label> --name <descriptive_name>`.
 - Data changes go in their own migration with `RunPython` and a reverse function. Use `RunPython.noop` as the reverse only when undoing is genuinely meaningless, and say why in a comment.
 - String fields use the empty string as their empty value, not `null=True`. The exception is a unique string field that may be absent.
 - Records from an external source carry the source's identifier under a unique constraint per source, so re-running ingestion updates rows instead of duplicating them.
