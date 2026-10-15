@@ -1,0 +1,26 @@
+# Python and tooling
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Secrets: only .env.example is committed
+.env
+.env.*
+!.env.example
+
+# Data: raw snapshots, personal data, and reference material stay local
+data/
+scratch/
+
+# Django
+media/
+staticfiles/
+
+# Claude Code personal settings
+.claude/settings.local.json
