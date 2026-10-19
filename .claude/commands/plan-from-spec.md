@@ -16,7 +16,7 @@ Tasks:
     - Write the full comparison with pros, cons, and rationale ONLY when the decision is architectural, hard to reverse, or you are genuinely uncertain between the candidates. When you do, it goes in the Decision Record document, never in the plan.
     - If the project already has a dominant idiom for this, that IS the decision. State it in one line, cite the file that establishes it, and move on.
     - Never invent an alternative you would not seriously choose. A "con" that you would describe as not a real cost means the option was never a candidate: leave it out entirely.
-6. Create, amend, or remove code, tests, and documentation according to the chosen solutions.
+6. Specify the code, tests, and documentation to create, amend, or remove, according to the chosen solutions.
 7. Include in the plan the verification commands that prove the work, and the manual steps the user must perform outside the repository.
 8. Include a summary at the top of the plan.
 
