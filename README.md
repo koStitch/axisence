@@ -253,6 +253,60 @@ Re-running a provider command on the export it just fetched reports `Created: 0`
 4. Editing a competitor's "merged into" on the competitor page merges it into the chosen competitor.
 5. Every decision is listed under Providers and competitors, Competitor decisions.
 
+## Research
+
+Researchers run research jobs in the admin, under Research. A job looks its target address up, lists the nearest licensed competitors, and collects what each one charges and whether it has room, one contact at a time.
+
+### Researcher accounts
+
+Each researcher has an account of their own.
+
+1. Log in at http://127.0.0.1:8000/admin/ as the administrator.
+2. Under Accounts, open Users and choose "Add user".
+3. Enter the researcher's username and a password the researcher chooses, then choose "Save". Expected: the user's page opens.
+4. Tick "Staff status".
+5. Under Groups, move "Researchers" to "Chosen groups", then choose "Save".
+
+Expected: the researcher logs in with that account and sees Research jobs, Job competitors, Contacts, and Observations under Research; the provider, competitor, and review flag pages with their review actions; and the demographics pages read-only.
+
+### Running a research job
+
+1. Under Research, open Research jobs and choose "Add research job".
+2. Choose the purpose, enter the organization's name and the target address on one line, optionally choose the assigned researcher, and check the search settings: the number of competitors to pre-select, the search radius in miles, and the provider kinds.
+3. Choose "Save". Expected: the address is looked up, and the job opens with the lookup's outcome and either its matched address and pin on the map, a list of matches with "Use this match" buttons, or no pin.
+4. Check the matched address and the pin. Correct a wrong or missing pin on the map: drag the pin, or choose "Delete all Features" and click the map to place a new one. After correcting the address itself, "Look up the address again" repeats the lookup.
+5. Tick "Confirm the target point" and choose "Save and continue editing". Expected: the confirmation shows who confirmed and when, and the ZIP Code Tabulation Area of the point appears.
+6. When the target is itself a listed provider, choose it as "Own competitor", so it is never listed as its own competitor.
+7. Choose "Search competitors". Expected: the competitors of the chosen kinds within the radius, nearest first, with their straight-line distances and labels. On the first search, the nearest ones without a reported closure are ticked.
+8. Tick and untick competitors, add one with "Add a competitor by name" when it lies outside the results, is of another kind, or has no location, or choose "This is the target itself" beside a result. Then choose "Save selection". Expected: "Selection saved: N added, M removed."
+9. Back on the job, choose "Start research". Expected: the job is Researching.
+
+### Calls
+
+1. In the job's list of competitors, choose "Call sheet" beside a competitor. Expected: its published data, labels, current values with their dates and methods, previous contacts, and the entry form, with a notice that the contact will be linked to the job.
+2. Enter the contact date, the method, the role of the person spoken to, and any notes. Notes never hold the name, email, or phone number of a person.
+3. Every pre-filled value starts "Not covered". Choose "Confirmed" when the value still holds, or "New value" and enter the value found. A changed value left "Not covered" or "Confirmed" is refused.
+4. Enter new age groups and schedules in their "New" rows, and new prices, availability, discounts, and other charges in the numbered rows of their sections. A new price or availability row can refer to "New age group A" or "New schedule A" of the same contact. Tick "Retire" beside an age group or schedule the provider no longer uses.
+5. Choose "Save contact". Expected: "Contact #N recorded with M observations."
+6. Back on the job, set the competitor's research status to In progress, Done, or Unreachable, and choose "Save and continue editing".
+7. Record a closure as the operating status "Temporarily closed" or "Permanently closed". It labels the competitor wherever it is listed; the provider data stays as its regulator publishes it.
+
+### Completing a job
+
+1. When no competitor is To do or In progress, choose "Mark complete". Expected: the job is Complete.
+2. "Reopen research" returns a Complete or Cancelled job to Researching, for late additions.
+3. "Cancel job" ends a job that is no longer wanted. Jobs are never deleted.
+
+### Correcting mistakes
+
+1. Under Research, open Contacts and then the contact.
+2. Choose "Retract this contact", or "Retract" beside one observation, give the reason, and choose "Retract". Expected: "Contact #N retracted." for a contact, or the observation's kind and number followed by "retracted." for one observation, such as "Price #N retracted." A retraction is final.
+3. Record the correct value in a new contact.
+
+### History
+
+The call sheet's "Full history" link lists every observation of the competitor and of the competitors merged into it, newest contact first.
+
 ## Documentation
 
 [Docs/README.md](Docs/README.md) indexes the project documentation.

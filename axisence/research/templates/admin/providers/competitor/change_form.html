@@ -1,0 +1,8 @@
+{% extends "admin/change_form.html" %}
+
+{% block object-tools-items %}
+  {% if perms.research.view_contact %}
+    <li><a href="{% url 'admin:research_contact_call_sheet' original.pk %}">Call sheet</a></li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

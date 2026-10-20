@@ -1,0 +1,15 @@
+<ul>
+  {% if labels.is_school_based %}<li>School-based</li>{% endif %}
+  {% if labels.is_no_longer_listed %}<li>No longer listed by its regulator</li>{% endif %}
+  <li>Licensed capacity: {{ labels.licensed_capacity }}</li>
+  {% if labels.ages_served %}<li>Ages served: {{ labels.ages_served|join:"; " }}</li>{% endif %}
+  {% for flag_id in labels.open_review_flag_ids %}
+    <li><a href="{% url 'admin:providers_reviewflag_change' flag_id %}">Pending review</a></li>
+  {% endfor %}
+  {% for status in labels.facility_statuses %}<li>{{ status }}</li>{% endfor %}
+  {% if labels.reported_closure %}
+    {% with observation=labels.reported_closure.observations.0 contact_date=labels.reported_closure.contact.contact_date %}
+      <li>Reported {% if observation.operating_status == "permanently_closed" %}permanently{% else %}temporarily{% endif %} closed on {{ contact_date|date:"Y-m-d" }}</li>
+    {% endwith %}
+  {% endif %}
+</ul>

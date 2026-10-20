@@ -51,7 +51,7 @@ Claude must not:
 5. Edit anything under `data/raw/` by hand. Raw downloads are immutable snapshots: the pipeline writes them, code reads them.
 6. Edit a migration that is already committed. Write a new migration instead. Migrations created by the current, uncommitted work may be edited or regenerated.
 7. Contact real third parties: no emails, calls, form submissions, or bulk crawling of provider websites. Building tooling that does this is fine; running it against real recipients is the user's decision, every time.
-8. Put personal data anywhere it can leak. Call lists, contact names, emails, phone numbers, and call notes concern real people: they live under `data/private/`, which is git-ignored, and never appear in fixtures, tests, documentation, logs, or reports. Tests use synthetic data.
+8. Put personal data anywhere it can leak. Call lists, contact names, emails, phone numbers, call notes, and research target addresses concern real people. Call lists and other personal files live under `data/private/`, which is git-ignored. Call notes live only in the notes field of research contacts in the local database, which never records a name, email, or phone number of a person, and appear only on the call sheet and on the contact's own admin page. None of this personal data ever appears in fixtures, tests, documentation, logs, error messages, or reports. Tests use synthetic data.
 
 These boundaries are enforced by permission rules and hooks in `.claude/settings.json`. Enforcement is a safety net, not a substitute for following the rules: the deny rules match tools and command prefixes, so a differently spelled shell command can slip past them. Every prohibition above applies to every tool, the shell included.
 

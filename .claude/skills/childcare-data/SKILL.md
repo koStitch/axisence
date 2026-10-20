@@ -15,5 +15,5 @@ description: "Use whenever working on anything that reads, ingests, matches, sto
 6. Census figures carry their table, vintage, and margin of error. "Children 0–5" states which Census age bracket it uses.
 7. Zip codes and ZIP Code Tabulation Areas differ. Join Census data on tabulation areas and say so.
 8. A provider vanishing from a source means it is no longer active there. Mark it, do not delete it: old reports and observations still point at it.
-9. Contact names, emails, phone numbers, and call notes of real people never go into fixtures, tests, documentation, logs, or client reports.
+9. Contact names, emails, phone numbers, call notes, and research target addresses of real people never go into fixtures, tests, documentation, logs, or client reports.
 10. When a fact about a source is learned during work, record it in `Docs/Domain/DataSources.md`, so the next session does not rediscover it.

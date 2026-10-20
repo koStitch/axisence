@@ -191,6 +191,21 @@ Providers that publish an address but no coordinates are geocoded with the US Ce
 6. Publisher coordinates always win over a geocoded location. A geocoded location is kept only while the published address that produced it is unchanged.
 7. Each provider records where its location came from (publisher, geocoder, or none), the address sent, the matched address, the time of the latest attempt, and its outcome.
 
+#### Single-address lookup of target addresses
+
+The research tool looks a research job's target address up with the single-address endpoint, `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress`, with three parameters: `address` (the whole address on one line), `benchmark=Public_AR_Current`, and `format=json`. It needs no key.
+
+1. The response is one JSON object. `result.input` echoes the address and the benchmark, and `result.addressMatches` lists the matches. Each match holds `matchedAddress` (text), `coordinates` with `x` (longitude) and `y` (latitude) as JSON numbers, `addressComponents`, and `tigerLine`. The numbers are read as decimals.
+2. The tool sends one request per lookup, with a timeout of 5 seconds to connect and 10 to read and no retry, because a researcher waits on the page. It stores no raw response.
+3. One match inside the NY State bounding box is proposed as the target point, and several are listed for the researcher to pick. No match, matches outside the state only, or a failed request propose nothing.
+4. Measured behaviour, with public landmarks:
+    1. A Queens-style hyphenated house number returns no match: Queens Borough Hall, `120-55 Queens Blvd`.
+    2. A vague input returns a single wrong match without any sign of doubt: `100 Main St, NY` matches a point on Governors Island.
+    3. A match can carry a different zip code from the input: Brooklyn Museum, `200 Eastern Pkwy`, matches in `11225`.
+    4. An input without a city returns no match.
+5. A proposal is therefore never trusted as it comes: the researcher confirms the point on the map, or places the pin, before the search and the research.
+6. The target addresses of clients and prospects are personal data: they are never logged, and never appear in documentation or fixtures.
+
 ## Demographics
 
 US Census Bureau American Community Survey 5-year estimates, through the Census Data API.
@@ -225,21 +240,41 @@ MTA static GTFS feeds provide subway and bus stop locations for the "nearest bus
 
 ## Mystery-shopping observations
 
-Proprietary data collected by Axisence researchers by phone, website, and email. A competitor profile records:
+Proprietary data collected by Axisence researchers by phone, website, and email, and recorded in the research tool.
 
-1. Operations: weeks open per year, opening hours, inspection status, number of places.
-2. Availability: current openings or waitlist, per age group.
-3. Admissions: minimum booking, multi-day discounts, sibling discount, other discounts and incentives, date of the last fee rise.
-4. Fees: per schedule (full time, 4 days, 3 days) and per age group, with the standard rate, the monthly rate, and any discount.
-5. Other charges: registration fee, deposit, ad hoc charges.
-6. Online presence: website traffic, social media profiles and activity, review ratings.
-7. Positioning: unique selling points and a strengths, weaknesses, opportunities, and threats summary.
+### Contacts and observations
 
-Rules for observations:
+1. A contact is one call, website visit, or email with one competitor. It records the contact date, the method (call, website, email), the researcher, the time it was entered, the role of the person spoken to (director, front desk, owner, other), and optional notes. It never records the name, email, or phone number of a person. A contact without observations records an unanswered call.
+2. An observation is one typed fact within a contact, and takes its date, method, and researcher from the contact.
+3. Age groups and schedules are the provider's own definitions, recorded as observations. An age group has the provider's name for it and its youngest and oldest age in whole months, rounded down, with a blank oldest age when it has no upper limit. A schedule has the provider's name for it, its days per week, and optionally its hours per day. A contact can define new ones and retire current ones.
+4. A price is an amount as stated, in US dollars, with its period (hourly, daily, weekly, monthly, annual), for one age group on one schedule, and records whether the amount already includes discounts. Nothing derived from it, such as a monthly equivalent, is stored.
+5. Availability is recorded per age group: openings, limited openings, a waitlist, or full without a waitlist, with an optional earliest start date and expected wait in months.
+6. Discounts (sibling, multi-day, upfront payment, referral, other) and other charges (registration, deposit, late pickup, other) are recorded by kind, with an optional value and an optional description. A discount's value is a percent or a dollar amount; a charge's value is a dollar amount or months of tuition, with an optional frequency (once, per year, per occurrence, per hour). A kind can be recorded as none offered.
+7. Single facts, at most one of each per contact: the operating status (operating, temporarily closed, permanently closed), weeks open per year, weekday opening hours, the inspection status as the source states it with an optional inspection date, the places as the provider states them (never licensed capacity), the minimum booking in days per week, the month of the last fee rise, a description or unique selling point, parking (on-site, street only, none) with a note, the website address, and whether the provider offers 3-K for All seats, offers Pre-K for All seats, and accepts child care vouchers. The last three are New York City's free public seats for three- and four-year-olds and its child care subsidies: a competitor that offers them competes for families who pay little or nothing, so its stated tuition alone understates its pull.
+8. A reported closure is an operating-status observation. It labels the competitor wherever it is listed, but never changes the activity of its providers, which only their regulators' datasets decide.
+9. Online presence (website traffic, social media, review ratings) and strengths, weaknesses, opportunities, and threats summaries are not recorded.
 
-1. Every observation records the competitor, the date, the method (call, website, email), and the researcher. Prices change, so observations are never overwritten; a newer observation supersedes an older one for display while both are kept.
-2. Prices keep their stated period (daily, weekly, monthly) and the provider's own age-group and schedule definitions. Age bands differ between providers, so "infant" in one center is not assumed to match "infant" in another.
-3. Call notes and contact details are personal data and stay out of reports, fixtures, and logs.
+### Slots and current values
+
+A slot is what one value answers: the price of one age group on one schedule, the availability of one age group, one kind of discount or other charge, or one single fact.
+
+1. An observation counts while neither it nor its contact is retracted.
+2. An age group or schedule is current until a counting retirement points at it, and a value counts only while every definition it refers to is current.
+3. In each slot, the newest contact among the counting values holds the current value, by contact date, then entry time, then contact number. Every counting value of the slot from that contact is current, so two quotes from one call are current together, and a "none offered" from the newest contact supersedes the older values of its kind.
+4. A retracted value or contact falls back to the next newest contact.
+5. A competitor's current values include the observations of every competitor merged into it, each with its own date.
+
+### Retraction and retirement
+
+1. Contacts and observations are never changed or deleted. A mistake is retracted with a reason, which records who retracted it and when, and the retraction is final. The correct value is then recorded in a new contact.
+2. Retracting a contact retracts every observation of it.
+3. Retiring an age group or schedule is an observation of a later contact. It records that the provider no longer uses the definition, takes the definition's prices and availability out of the current values, and keeps them in the history.
+
+### Rules for observations
+
+1. Every observation records its date, method, and researcher through its contact. Prices change, so observations are never overwritten; a newer contact supersedes an older one for display while both are kept.
+2. Prices keep their stated period and the provider's own age-group and schedule definitions. Age bands differ between providers, so "infant" in one center is not assumed to match "infant" in another.
+3. Call notes and the target addresses of clients and prospects are personal data. Notes appear only on the call sheet and on the contact's own admin page, and never name, email, or phone a person. Neither notes nor target addresses ever appear in reports, fixtures, documentation, or logs.
 4. Inspection status is an observation like any other, with its date and method. The NYC Health inspection dataset (`dsg6-ifza`) is frozen, so it is not a source of current status.
 
 ## Vocabulary
@@ -250,5 +285,10 @@ Rules for observations:
 | Operator | The business that runs one or more providers. |
 | Target address | The location a report is about: the client's center or a site the client is considering. |
 | Competitor | The providers one operator runs at one location within the report radius of the target address. |
-| Observation | One recorded fact from mystery shopping, with its date, method, and researcher. |
+| Research job | One competitor analysis for a target address, for a client report or a prospect, from its draft to its completion or cancellation. |
+| Contact | One call, website visit, or email with one competitor, with its date, method, and researcher. |
+| Observation | One recorded fact within a contact, with the contact's date, method, and researcher. |
+| Age group | A provider's own age band, such as "Infants, 6–18 months", with its limits in whole months. |
+| Schedule | A provider's own attendance pattern, such as "Full time, 5 days per week". |
+| Slot | What one value answers: the price of one age group on one schedule, the availability of one age group, one kind of discount or charge, or one single fact. |
 | Licensed capacity | The maximum number of children a provider may serve, as published by its regulator. |

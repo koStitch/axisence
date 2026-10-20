@@ -1,6 +1,6 @@
 # Project Architecture
 
-How Axisence runs: what runs on the Windows host and what runs in containers, the Compose services, the package map, settings, the data pipeline, commands, and the test and type-checking setup.
+How Axisence runs: what runs on the Windows host and what runs in containers, the Compose services, the package map, settings, the data pipeline, the research tool, commands, and the test and type-checking setup.
 
 ## Host and container
 
@@ -36,12 +36,13 @@ GeoDjango loads the GDAL and GEOS native libraries when Django starts. Installin
 | `config` | `settings.py`, the only settings module; `environment.py`, the environment-variable readers; `urls.py`; `wsgi.py`; `asgi.py`. |
 | `axisence.accounts` | The custom user model `User`, set as `AUTH_USER_MODEL = "accounts.User"` and registered in the admin with Django's `UserAdmin`. |
 | `axisence.diagnostics` | The `healthcheck` management command. It reports the database target and the PostgreSQL, PostGIS, GDAL, and GEOS versions, and exits with a non-zero status when any check fails. No models. |
-| `axisence.ingestion` | Pipeline infrastructure shared by every source. Models `IngestionRun` and `IngestionSnapshot`. `http_session.py` builds the HTTP session; `snapshots.py` saves and locates raw snapshots; `socrata.py` fetches a Socrata dataset's metadata and export; `runs.py` starts, completes, fails, and reports runs; `redaction.py` removes secrets from text and log records; `errors.py` holds `IngestionError`. View-only admin pages. |
+| `axisence.ingestion` | Pipeline infrastructure shared by every source. Models `IngestionRun` and `IngestionSnapshot`. `http_session.py` builds the HTTP sessions of the pipeline and of the research tool's lookups; `snapshots.py` saves and locates raw snapshots; `socrata.py` fetches a Socrata dataset's metadata and export; `runs.py` starts, completes, fails, and reports runs; `redaction.py` removes secrets from text and log records; `errors.py` holds `IngestionError`. View-only admin pages. |
 | `axisence.providers` | Providers and competitors. Models `Provider`, `Competitor`, `ReviewFlag`, and `CompetitorDecision`. `normalization.py` derives display names and matching keys; `parsing.py`, `ny_state.py`, and `nyc_health.py` parse the exports into records; `storing.py` upserts records and tracks activity; `grouping.py` places providers into competitors and refreshes competitor summaries; `geocoding.py` geocodes providers without coordinates; `review.py` holds the researcher decisions; `pipeline.py` runs one provider ingestion. The commands `ingest_ny_state_providers` and `ingest_nyc_health_providers`. Admin pages where researchers review flags, move providers, and merge competitors. |
 | `axisence.demographics` | Census data. Models `TabulationArea`, `CensusVariable`, and `CensusFigure`. `census_api.py` requests the Census Data API; `parsing.py` parses its responses; `boundaries.py` reads the boundary shapefile; `loading.py` stores figures and boundaries; `pipeline.py` runs both Census ingestions. The commands `ingest_census_demographics` and `ingest_census_boundaries`. View-only admin pages. |
+| `axisence.research` | The research tool. Models `ResearchJob`, `JobCompetitor`, `Contact`, and `Observation`. `geocoding.py` looks target addresses up; `merges.py` resolves merged competitors; `distances.py` measures and formats straight-line distances; `search.py` finds a job's competitors and saves its selection; `labels.py` builds the labels of every listed competitor; `current_values.py` computes the current value of every slot; `job_competitors.py` lists a job's competitors and stores their distances; `jobs.py` holds the job lifecycle; `contacts.py` records and retracts contacts; `forms.py` and `call_sheet.py` hold the forms; `views.py` holds the pages inside the admin; `redaction.py` holds the logging filter for target addresses. Admin pages and their templates. It depends on `providers`, `demographics`, and `ingestion`, and none of them imports it. |
 | `tests` | The test suite, mirroring the packages above. |
 
-Every Django app is a subpackage of `axisence`, for example `axisence.providers`, and is listed in `INSTALLED_APPS` in `config/settings.py`. The admin at `/admin/` is the only URL.
+Every Django app is a subpackage of `axisence`, for example `axisence.providers`, and is listed in `INSTALLED_APPS` in `config/settings.py`. `django.contrib.postgres`, which ships with Django, is installed too, for the array of provider kinds a research job searches. The admin at `/admin/` is the only URL.
 
 ## Settings and environment variables
 
@@ -58,7 +59,7 @@ Every Django app is a subpackage of `axisence`, for example `axisence.providers`
 | `DJANGO_SECRET_KEY` | yes | none | `SECRET_KEY` |
 | `DJANGO_DEBUG` | no | false | `DEBUG` |
 | `DJANGO_ALLOWED_HOSTS` | no | empty list | `ALLOWED_HOSTS`, comma-separated |
-| `DJANGO_LOG_LEVEL` | no | `INFO` | Console logging level for every logger, Django's own included |
+| `DJANGO_LOG_LEVEL` | no | `INFO` | Console logging level for every logger, Django's own included, except Django's SQL logger, which stays at `INFO` |
 | `POSTGRES_HOST` | yes | none | Database host; `db` under Compose |
 | `POSTGRES_PORT` | no | `5432` | Database port |
 | `POSTGRES_DB` | yes | none | Database name; also read by the PostGIS image |
@@ -108,9 +109,60 @@ Raw snapshot layout under `data/raw/`, where every file name reads `<UTC timesta
 
 ### HTTP and secrets
 
-1. Every request goes through `axisence.ingestion.http_session.build_session()`: a timeout of 10 seconds to connect and 120 to read, up to 5 retries with exponential backoff on HTTP 429, 500, 502, 503, and 504 for GET and POST, `Retry-After` honoured, and the User-Agent `Axisence-Data-Pipeline (public data ingestion)`.
+1. Every outbound request goes through a session that `axisence.ingestion.http_session` builds:
+    1. `build_session()`, for the pipeline: a timeout of 10 seconds to connect and 120 to read, up to 5 retries with exponential backoff on HTTP 429, 500, 502, 503, and 504 for GET and POST, `Retry-After` honoured, and the User-Agent `Axisence-Data-Pipeline (public data ingestion)`.
+    2. `build_lookup_session()`, for the research tool's target address lookups: a timeout of 5 seconds to connect and 10 to read, no retry, because a researcher waits on the page, and the User-Agent `Axisence-Research-Tool (target address lookup)`.
 2. The Census key travels as the `key` query parameter, so request URLs carry it. `redact_secrets` removes every `key` parameter and both configured secrets from error messages before they are logged, stored, or shown, and a logging filter on the console handler does the same for every log record, urllib3's request lines included.
 3. Logs and run records identify a provider by source and identifier only, never by name, address, or phone number.
+
+## Research tool
+
+Researchers run research jobs and record contacts in pages inside the admin, behind its login.
+
+### Pages
+
+| Page | URL | Holds |
+| --- | --- | --- |
+| Research job | `/admin/research/researchjob/<id>/change/` | The job; the target point on GeoDjango's OpenStreetMap map widget, with its confirmation and its tabulation area; the job's competitors with their research statuses; the status buttons. |
+| Competitor search | `/admin/research/researchjob/<id>/search/` | The candidate competitors with their straight-line distances and labels, the selection, and adding a competitor by name. |
+| Call sheet | `/admin/research/contact/call-sheet/<competitor id>/` | The competitor's published data, labels, current values, and previous contacts, and the entry form of a new contact. |
+| Retraction | `/admin/research/contact/<id>/retract/` | The confirmation and the reason of a retraction, of a whole contact or, with `?observation=<id>`, of one observation. |
+
+1. The views live in `axisence/research/views.py` and are wired through the model admins' `get_urls`, so the admin login guards them. Each view checks its own permissions.
+2. The competitor page's "Call sheet" link comes from `admin/providers/competitor/change_form.html`, a template the research app ships for the providers admin, so `providers` never imports `research`.
+3. The add-by-name field asks a job-specific autocomplete view, `/admin/research/researchjob/<id>/competitor-autocomplete/`, which serves the admin's autocomplete without the job's own competitor. No competitor autocomplete ever offers a retired competitor.
+4. Status changes are submit buttons on the job page, applied after the inline research statuses are saved, so "Mark complete" sees the statuses saved with it.
+5. The map loads OpenLayers from `cdn.jsdelivr.net` and its tiles from OpenStreetMap in the researcher's browser, so it needs an internet connection.
+
+### Researchers group
+
+The data migration `research.0002_create_researchers_group` creates the group "Researchers". It creates the permissions it grants first, because Django creates permissions only after all migrations.
+
+| App | Permissions |
+| --- | --- |
+| `providers` | View and change providers, competitors, and review flags; view competitor decisions. |
+| `demographics` | View tabulation areas, Census variables, and Census figures. |
+| `research` | Add, view, and change research jobs and job competitors; add and view contacts and observations; `retract_contact`, the permission to retract contacts and observations. |
+
+A researcher therefore cannot manage accounts or change ingested data other than through the competitor review actions.
+
+### Append-only records
+
+Contacts and observations are never changed or deleted, and research jobs are never deleted. Three layers enforce it:
+
+1. The admin refuses to change or delete contacts and observations, and to delete research jobs, for every user, the superuser included. Contacts are added only through the call sheet.
+2. `Contact.save` and `Observation.save` refuse any update other than of the three retraction columns. Their instance `delete` and their querysets' `update` and `delete`, and with it `bulk_update`, raise `PermanentRecordError`, and research jobs refuse deletion the same way.
+3. Every foreign key to these rows is `PROTECT`, and check constraints keep each observation kind to its own columns, every retraction complete, and research on a confirmed target point.
+
+### Merged competitors
+
+Research rows keep the competitor they were recorded for and are never rewritten when competitors merge. `merges.MergeChains` loads where every retired competitor's merges lead in one query, and every display resolves rows to the current competitor at read time: a job lists a competitor once, current values include the observations of merged competitors, contacts are recorded only for current competitors, and a retired competitor's call sheet redirects to the competitor that received it.
+
+### Logging
+
+1. Every module that logs uses `logging.getLogger(__name__)` and identifies jobs, contacts, observations, and competitors by number only, never by address, notes, or value.
+2. urllib3 logs request URLs, and the single-address geocoder's URL holds the target address in its `address` query parameter. `axisence.research.redaction.RedactTargetAddressesFilter`, on the console handler next to the secrets filter, redacts that parameter from every record. A failed lookup logs only the class name of its error, because a requests error message holds the URL.
+3. In debug mode Django's SQL logger, `django.db.backends`, writes every statement with its parameters at `DEBUG`, and those parameters hold target addresses and call notes. The logger is pinned to `INFO` in `LOGGING`, so `DJANGO_LOG_LEVEL=DEBUG` never prints SQL.
 
 ## Commands
 
@@ -142,8 +194,9 @@ Each command has exactly one form, used the same way in `CLAUDE.md`, `.claude/se
 1. pytest with pytest-django is configured in `pyproject.toml`, with `DJANGO_SETTINGS_MODULE = "config.settings"` and tests under `tests/`. The suite runs only in the `web` container, against the Compose PostGIS server, where Django creates and destroys its test database. Tests never use SQLite and never touch the network.
 2. Tests that need the database are marked `@pytest.mark.django_db`. A test that needs a model no production app defines declares a throwaway model in an isolated app registry (`django.test.utils.isolate_apps`) and creates its table with the schema editor inside the test's transaction, as `tests/test_postgis.py` does.
 3. mypy runs in strict mode with the django-stubs plugin, configured in `pyproject.toml`. The plugin imports the settings and models, and with them GDAL, so mypy runs only in the container. Test code may leave function definitions unannotated; their bodies are still checked. Migrations and `scratch/` are excluded.
-4. `tests/fixtures/` holds the recorded inputs: provider export rows cut from real snapshots, with every phone number, licensee name, and home name, address, and coordinate replaced by synthetic values; trimmed Census Data API responses; and a recorded geocoder response. They hold public or synthetic data only.
-5. Autouse fixtures in `tests/conftest.py` keep every test off the network and off the real data: `http_session.build_session` is wrapped to mount a fake transport, `tests/ingestion/fake_transport.py`, which answers only the routes a test registers; `RAW_DATA_DIRECTORY` points at a temporary directory; and both secrets are blank unless a test sets synthetic values.
+4. `tests/fixtures/` holds the recorded inputs: provider export rows cut from real snapshots, with every phone number, licensee name, and home name, address, and coordinate replaced by synthetic values; trimmed Census Data API responses; a recorded batch geocoder response; and a recorded single-address geocoder response for Brooklyn Borough Hall, a public building. They hold public or synthetic data only.
+5. Autouse fixtures in `tests/conftest.py` keep every test off the network and off the real data: `http_session.build_session` and `http_session.build_lookup_session` are wrapped to mount a fake transport, `tests/ingestion/fake_transport.py`, which answers only the routes a test registers and records each request and its timeout; `RAW_DATA_DIRECTORY` points at a temporary directory; and both secrets are blank unless a test sets synthetic values.
 6. `tests/demographics/shapefiles.py` writes a minimal polygon shapefile with a NAD83 projection into a zip, so the boundary tests run GDAL on synthetic areas instead of the 67 MB national file.
-7. django-stubs declares `ModelAdmin`, `TabularInline`, and `ModelForm` generic, but those classes cannot be subscripted at runtime. Each `admin.py` therefore defines its parameterized base classes under `if TYPE_CHECKING:` and the plain classes otherwise, which keeps strict typing without a runtime dependency or `type: ignore` comments.
-8. ruff runs on the host and is configured in `pyproject.toml`. Its rule set enforces the `CLAUDE.md` rules that have a linter equivalent, among them timezone-aware datetimes, no `print`, annotated signatures outside tests, no SQL built by string formatting, explicit HTTP timeouts, and no hard-coded secrets. Migrations are excluded from linting and formatting.
+7. `tests/admin_forms.py` builds the data an admin change page posts, its main form and inline formsets included, and `tests/research/call_sheet_posts.py` does the same for the call sheet.
+8. django-stubs declares `ModelAdmin`, `TabularInline`, and `ModelForm` generic, but those classes cannot be subscripted at runtime. Each `admin.py` therefore defines its parameterized base classes under `if TYPE_CHECKING:` and the plain classes otherwise, which keeps strict typing without a runtime dependency or `type: ignore` comments.
+9. ruff runs on the host and is configured in `pyproject.toml`. Its rule set enforces the `CLAUDE.md` rules that have a linter equivalent, among them timezone-aware datetimes, no `print`, annotated signatures outside tests, no SQL built by string formatting, explicit HTTP timeouts, and no hard-coded secrets. Migrations are excluded from linting and formatting.

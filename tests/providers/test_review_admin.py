@@ -12,6 +12,7 @@ from axisence.providers.models import (
     ReviewFlag,
     ReviewFlagReason,
 )
+from tests.admin_forms import change_form_data
 from tests.providers.factories import make_competitor, make_provider
 
 
@@ -19,24 +20,6 @@ def _competitor_with_provider(name):
     competitor = make_competitor(display_name=name)
     provider = make_provider(original_name=name, competitor=competitor)
     return competitor, provider
-
-
-def _change_form_data(admin_client, url, **changes):
-    # The posted form must carry the inline formsets the change page renders.
-    response = admin_client.get(url)
-    data = {}
-    for inline_admin_formset in response.context["inline_admin_formsets"]:
-        formset = inline_admin_formset.formset
-        management_form = formset.management_form
-        for name in management_form.fields:
-            data[management_form.add_prefix(name)] = management_form[name].value()
-        for form in formset.forms:
-            for name in form.fields:
-                value = form[name].value()
-                if value is not None:
-                    data[form.add_prefix(name)] = value
-    data.update(changes)
-    return data
 
 
 @pytest.mark.django_db
@@ -72,7 +55,7 @@ def test_editing_a_providers_competitor_moves_it(admin_client):
     url = reverse("admin:providers_provider_change", args=(provider.pk,))
 
     response = admin_client.post(
-        url, _change_form_data(admin_client, url, competitor=target.pk)
+        url, change_form_data(admin_client, url, competitor=target.pk)
     )
 
     provider.refresh_from_db()
@@ -109,7 +92,7 @@ def test_editing_merged_into_merges_competitors(admin_client):
     url = reverse("admin:providers_competitor_change", args=(absorbed.pk,))
 
     response = admin_client.post(
-        url, _change_form_data(admin_client, url, merged_into=receiving.pk)
+        url, change_form_data(admin_client, url, merged_into=receiving.pk)
     )
 
     absorbed.refresh_from_db()
@@ -134,7 +117,7 @@ def test_retired_competitor_is_rejected_as_a_target(admin_client):
     url = reverse("admin:providers_provider_change", args=(provider.pk,))
 
     response = admin_client.post(
-        url, _change_form_data(admin_client, url, competitor=retired.pk)
+        url, change_form_data(admin_client, url, competitor=retired.pk)
     )
     autocomplete = admin_client.get(
         reverse("admin:autocomplete"),

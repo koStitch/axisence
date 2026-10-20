@@ -1,0 +1,125 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin/css/forms.css' %}">{% endblock %}
+
+{% block extrahead %}{{ block.super }}{{ form.media }}{% endblock %}
+
+{% block bodyclass %}{{ block.super }} app-research model-researchjob{% endblock %}
+
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Home</a></li>
+  <li><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+  <li><a href="{% url 'admin:research_researchjob_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+  <li><a href="{{ job_url }}">{{ job }}</a></li>
+  <li aria-current="page">Search competitors</li>
+</ol>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <div class="module aligned">
+    <h2>{{ job }}</h2>
+    <div class="form-row"><label>Organization</label><div class="readonly">{{ job.organization_name }}</div></div>
+    <div class="form-row"><label>Status</label><div class="readonly">{{ job.get_status_display }}</div></div>
+    <div class="form-row"><label>Competitors to pre-select</label><div class="readonly">{{ job.preselected_competitor_count }}</div></div>
+    <div class="form-row"><label>Search radius</label><div class="readonly">{{ job.search_radius_miles }} miles</div></div>
+    <div class="form-row"><label>Provider kinds</label><div class="readonly">{{ job.provider_kind_labels|join:", " }}</div></div>
+    <div class="form-row"><a href="{{ job_url }}">Back to {{ job }}</a></div>
+  </div>
+
+  <form method="post" action="" novalidate>
+    {% csrf_token %}
+    {# Enter submits with the form's first submit button: keep that a plain save, ahead of the "This is the target itself" buttons. #}
+    <input type="submit" value="Save selection" hidden>
+    {% if form.errors %}
+      <p class="errornote">Please correct the errors below.</p>
+      {{ form.non_field_errors }}
+      {{ form.selected.errors }}
+      {{ form.own_competitor_from_results.errors }}
+    {% endif %}
+
+    <div class="module">
+      <h2>Competitors within {{ job.search_radius_miles }} miles</h2>
+      {% if results %}
+        <div class="results">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Selected</th>
+                <th scope="col">Competitor</th>
+                <th scope="col">Street address</th>
+                <th scope="col">Borough</th>
+                <th scope="col">Straight-line distance</th>
+                <th scope="col">Labels</th>
+                <th scope="col">Target</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in results %}
+                <tr>
+                  <td><input type="checkbox" name="selected" value="{{ row.competitor.pk }}" aria-label="Select {{ row.competitor }}"{% if row.is_selected %} checked{% endif %}></td>
+                  <td><a href="{% url 'admin:providers_competitor_change' row.competitor.pk %}">{{ row.competitor.display_name|default:row.competitor }}</a></td>
+                  <td>{{ row.competitor.street_address }}</td>
+                  <td>{{ row.competitor.get_borough_display }}</td>
+                  <td>{{ row.distance }}</td>
+                  <td>{% include "admin/research/includes/competitor_labels.html" with labels=row.labels %}</td>
+                  <td><button type="submit" class="button" name="own_competitor_from_results" value="{{ row.competitor.pk }}">This is the target itself</button></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p>No competitor of the chosen kinds lies within {{ job.search_radius_miles }} miles.</p>
+      {% endif %}
+    </div>
+
+    {% if kept_selections %}
+      <div class="module">
+        <h2>Selected competitors outside these results</h2>
+        <div class="results">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Selected</th>
+                <th scope="col">Competitor</th>
+                <th scope="col">Street address</th>
+                <th scope="col">Borough</th>
+                <th scope="col">Straight-line distance</th>
+                <th scope="col">Labels</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in kept_selections %}
+                <tr>
+                  <td><input type="checkbox" name="selected" value="{{ row.competitor.pk }}" aria-label="Select {{ row.competitor }}"{% if row.is_selected %} checked{% endif %}></td>
+                  <td><a href="{% url 'admin:providers_competitor_change' row.competitor.pk %}">{{ row.competitor.display_name|default:row.competitor }}</a></td>
+                  <td>{{ row.competitor.street_address }}</td>
+                  <td>{{ row.competitor.get_borough_display }}</td>
+                  <td>{{ row.distance }}</td>
+                  <td>{% include "admin/research/includes/competitor_labels.html" with labels=row.labels %}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+
+    <fieldset class="module aligned">
+      <div class="form-row">
+        {{ form.added_competitor.errors }}
+        {{ form.added_competitor.label_tag }}
+        {{ form.added_competitor }}
+        <div class="help">{{ form.added_competitor.help_text }}</div>
+      </div>
+    </fieldset>
+
+    <div class="submit-row">
+      <input type="submit" class="default" value="Save selection">
+    </div>
+  </form>
+</div>
+{% endblock %}

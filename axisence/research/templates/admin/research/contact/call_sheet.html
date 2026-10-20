@@ -1,0 +1,285 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin/css/forms.css' %}">{% endblock %}
+
+{% block bodyclass %}{{ block.super }} app-research model-contact{% endblock %}
+
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Home</a></li>
+  <li><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+  <li><a href="{% url 'admin:research_contact_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+  <li aria-current="page">Call sheet</li>
+</ol>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  {% if job_notice %}
+    <p class="errornote">{{ job_notice }}</p>
+  {% elif linked_job %}
+    <p>This contact will be linked to <a href="{% url 'admin:research_researchjob_change' linked_job.pk %}">{{ linked_job }}</a>.</p>
+  {% endif %}
+
+  <div class="module aligned">
+    <h2>Published data</h2>
+    <div class="form-row"><label>Name</label><div class="readonly"><a href="{% url 'admin:providers_competitor_change' competitor.pk %}">{{ competitor.display_name|default:competitor }}</a></div></div>
+    <div class="form-row"><label>Street address</label><div class="readonly">{{ competitor.street_address }}</div></div>
+    <div class="form-row"><label>Borough</label><div class="readonly">{{ competitor.get_borough_display }}</div></div>
+    <div class="form-row"><label>Phone numbers</label><div class="readonly">{{ phone_numbers|join:"; "|default:"None" }}</div></div>
+  </div>
+  <div class="module">
+    <h2>Providers</h2>
+    <div class="results">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Provider</th>
+            <th scope="col">Kind</th>
+            <th scope="col">Program type</th>
+            <th scope="col">Ages served</th>
+            <th scope="col">Licensed capacity</th>
+            <th scope="col">NY State facility status</th>
+            <th scope="col">NY State profile</th>
+            <th scope="col">Activity</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in provider_rows %}
+            <tr>
+              <td><a href="{% url 'admin:providers_provider_change' row.provider.pk %}">{{ row.provider }}</a></td>
+              <td>{{ row.provider.get_kind_display }}</td>
+              <td>{% if row.provider.source == "ny_state" %}{{ row.provider.ny_state_program_type }}{% else %}{{ row.provider.nyc_health_program_type }}{% endif %}</td>
+              <td>{{ row.ages_served|join:"; " }}</td>
+              <td>{{ row.licensed_capacity }}</td>
+              <td>{{ row.provider.ny_state_facility_status }}</td>
+              <td>{% if row.provider.ny_state_program_profile_url %}<a href="{{ row.provider.ny_state_program_profile_url }}" rel="noreferrer" target="_blank">Profile</a>{% endif %}</td>
+              <td>{% if row.provider.missing_since %}Missing since {{ row.provider.missing_since|date:"Y-m-d" }}{% else %}Active{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="module">
+    <h2>Labels</h2>
+    {% include "admin/research/includes/competitor_labels.html" %}
+  </div>
+
+  <div class="module">
+    <h2>Current values</h2>
+    {% if current_value_rows %}
+      <div class="results">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Slot</th>
+              <th scope="col">Value</th>
+              <th scope="col">Contact date</th>
+              <th scope="col">Method</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in current_value_rows %}
+              <tr>
+                <td>{{ row.slot_label }}</td>
+                <td>{% for summary in row.summaries %}{{ summary }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                <td>{{ row.contact.contact_date|date:"Y-m-d" }}</td>
+                <td>{{ row.contact.get_method_display }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>Nothing recorded yet.</p>
+    {% endif %}
+    <p><a href="{{ history_url }}">Full history</a></p>
+  </div>
+
+  <div class="module">
+    <h2>Previous contacts</h2>
+    {% if previous_contacts %}
+      <div class="results">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Contact</th>
+              <th scope="col">Date</th>
+              <th scope="col">Method</th>
+              <th scope="col">Researcher</th>
+              <th scope="col">Role</th>
+              <th scope="col">Job</th>
+              <th scope="col">Notes</th>
+              <th scope="col">Retraction</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for contact in previous_contacts %}
+              <tr>
+                <td><a href="{% url 'admin:research_contact_change' contact.pk %}">{{ contact }}</a></td>
+                <td>{{ contact.contact_date|date:"Y-m-d" }}</td>
+                <td>{{ contact.get_method_display }}</td>
+                <td>{{ contact.researcher.get_username }}</td>
+                <td>{{ contact.get_person_role_display }}</td>
+                <td>{% if contact.job %}{{ contact.job }}{% endif %}</td>
+                <td>{{ contact.notes|linebreaksbr }}</td>
+                <td>{% if contact.is_retracted %}Retracted: {{ contact.retraction_reason }}{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>No contact yet.</p>
+    {% endif %}
+  </div>
+
+  <form method="post" action="" novalidate>
+    {% csrf_token %}
+    {% if sheet.has_errors %}
+      <p class="errornote">Please correct the errors below.</p>
+    {% endif %}
+    {% if sheet.errors %}
+      <ul class="errorlist">{% for error in sheet.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+    {% endif %}
+
+    <fieldset class="module aligned">
+      <h2>New contact</h2>
+      {% for field in sheet.contact_form %}
+        <div class="form-row">
+          {{ field.errors }}
+          {{ field.label_tag }}
+          {{ field }}
+          {% if field.help_text %}<div class="help"><strong>{{ field.help_text }}</strong></div>{% endif %}
+        </div>
+      {% endfor %}
+    </fieldset>
+
+    {% for section in sheet.definition_sections %}
+      <fieldset class="module">
+        <h2>{{ section.title }}</h2>
+        {{ section.retire_field.errors }}
+        <div class="results">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Definition</th>
+                <th scope="col">Recorded</th>
+                <th scope="col">Retire</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in section.rows %}
+                <tr>
+                  <td>{{ row.label }}</td>
+                  <td>{{ row.definition.contact.contact_date|date:"Y-m-d" }}, {{ row.definition.contact.get_method_display }}</td>
+                  <td><label>{{ row.retire_checkbox.tag }} Retire</label></td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="3">None recorded yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="results">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">New</th>
+                {% for field in section.new_forms.0 %}
+                  <th scope="col">{{ field.label }}{% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for new_form in section.new_forms %}
+                <tr>
+                  <td>{{ new_form.label }}</td>
+                  {% for field in new_form %}<td>{{ field.errors }}{{ field }}</td>{% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </fieldset>
+    {% endfor %}
+
+    {% for section in sheet.value_sections %}
+      <fieldset class="module">
+        <h2>{{ section.title }}</h2>
+        {% if section.slot_forms %}
+          <div class="results">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Slot</th>
+                  <th scope="col">Current value</th>
+                  <th scope="col">Coverage</th>
+                  <th scope="col">Values</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for slot_form in section.slot_forms %}
+                  <tr>
+                    <td>{{ slot_form.label }}</td>
+                    <td>
+                      {% if slot_form.current %}
+                        {% for observation in slot_form.current.observations %}{{ observation.value_summary }}<br>{% endfor %}
+                        <span class="help">{{ slot_form.current.contact.contact_date|date:"Y-m-d" }}, {{ slot_form.current.contact.get_method_display }}</span>
+                      {% else %}
+                        None
+                      {% endif %}
+                    </td>
+                    <td>{{ slot_form.coverage.errors }}{{ slot_form.coverage }}</td>
+                    <td>
+                      {% for field in slot_form %}
+                        {% if field.name != "coverage" %}
+                          <div>
+                            {{ field.errors }}
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% if field.help_text %}<span class="help">{{ field.help_text }}</span>{% endif %}
+                          </div>
+                        {% endif %}
+                      {% endfor %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+        {% if section.new_forms %}
+          <div class="results">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">New</th>
+                  {% for field in section.new_forms.0 %}
+                    <th scope="col">{{ field.label }}{% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for new_form in section.new_forms %}
+                  <tr>
+                    <td>{{ forloop.counter }}</td>
+                    {% for field in new_form %}<td>{{ field.errors }}{{ field }}</td>{% endfor %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </fieldset>
+    {% endfor %}
+
+    <div class="submit-row">
+      <input type="submit" class="default" value="Save contact">
+    </div>
+  </form>
+</div>
+{% endblock %}

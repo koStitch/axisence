@@ -24,11 +24,13 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.gis",
+    "django.contrib.postgres",
     "axisence.accounts",
     "axisence.diagnostics",
     "axisence.ingestion",
     "axisence.providers",
     "axisence.demographics",
+    "axisence.research",
 ]
 
 MIDDLEWARE = [
@@ -110,12 +112,20 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     # urllib3 logs request URLs, which carry the Census key in the query string, on
-    # retries and at DEBUG level. The filter redacts keys from every record.
+    # retries and at DEBUG level. The filter redacts keys from every record. urllib3
+    # also logs the single-address geocoder's URL, whose query string holds a research
+    # target address, so the second filter redacts it.
     "filters": {
         "redact_secrets": {"()": "axisence.ingestion.redaction.RedactSecretsFilter"},
+        "redact_target_addresses": {
+            "()": "axisence.research.redaction.RedactTargetAddressesFilter"
+        },
     },
     "handlers": {
-        "console": {"class": "logging.StreamHandler", "filters": ["redact_secrets"]},
+        "console": {
+            "class": "logging.StreamHandler",
+            "filters": ["redact_secrets", "redact_target_addresses"],
+        },
     },
     "root": {
         "handlers": ["console"],
@@ -124,8 +134,11 @@ LOGGING = {
     # Django's default logging gives the django logger its own console handler, which
     # together with the root handler prints each Django record twice. Without handlers
     # or a level of its own, the django logger passes its records to root once, at
-    # DJANGO_LOG_LEVEL.
+    # DJANGO_LOG_LEVEL. In debug mode Django's SQL logger writes every statement with
+    # its parameters at DEBUG, and those parameters hold research target addresses and
+    # call notes, so it stays at INFO whatever DJANGO_LOG_LEVEL says.
     "loggers": {
         "django": {"handlers": [], "level": "NOTSET"},
+        "django.db.backends": {"handlers": [], "level": "INFO"},
     },
 }

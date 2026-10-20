@@ -1,4 +1,5 @@
-"""The HTTP session every outbound request of the pipeline uses."""
+"""The HTTP sessions every outbound request uses: the pipeline's retrying session and
+the research tool's single-attempt lookup session."""
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -29,4 +30,24 @@ def build_session() -> requests.Session:
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     session.headers["User-Agent"] = USER_AGENT
+    return session
+
+
+LOOKUP_USER_AGENT = "Axisence-Research-Tool (target address lookup)"
+LOOKUP_CONNECT_TIMEOUT_SECONDS = 5
+LOOKUP_READ_TIMEOUT_SECONDS = 10
+LOOKUP_TIMEOUT = (LOOKUP_CONNECT_TIMEOUT_SECONDS, LOOKUP_READ_TIMEOUT_SECONDS)
+
+
+def build_lookup_session() -> requests.Session:
+    """Return a session for interactive lookups that tries each request once.
+
+    A researcher waits on the page, so a failure is reported at once instead of
+    retried with backoff.
+    """
+    adapter = HTTPAdapter(max_retries=Retry(total=0, read=False, raise_on_status=False))
+    session = requests.Session()
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    session.headers["User-Agent"] = LOOKUP_USER_AGENT
     return session

@@ -44,9 +44,6 @@ else:
 
 RETIRED_TARGET_MESSAGE = "A retired competitor cannot receive providers."
 
-# Autocomplete requests name the form field they fill.
-_COMPETITOR_AUTOCOMPLETE_FIELD_NAMES = frozenset({"competitor", "merged_into"})
-
 
 def _researcher(request: HttpRequest) -> User:
     if isinstance(request.user, User):
@@ -407,8 +404,9 @@ class CompetitorAdmin(CompetitorAdminBase):
         queryset, may_have_duplicates = super().get_search_results(
             request, queryset, search_term
         )
-        # Autocomplete never offers a retired competitor as a target.
-        if request.GET.get("field_name") in _COMPETITOR_AUTOCOMPLETE_FIELD_NAMES:
+        # Autocomplete never offers a retired competitor. Autocomplete requests name
+        # the form field they fill.
+        if request.GET.get("field_name"):
             queryset = queryset.filter(retired_at__isnull=True)
         return queryset, may_have_duplicates
 

@@ -21,16 +21,27 @@ def blank_secrets(settings):
 
 @pytest.fixture(autouse=True)
 def fake_transport(monkeypatch):
+    # Both session builders are wrapped, so no session reaches the network.
     transport = FakeTransport()
-    original = http_session.build_session
+    original_build_session = http_session.build_session
+    original_build_lookup_session = http_session.build_lookup_session
 
     def build_session_with_fake_transport():
-        session = original()
+        session = original_build_session()
+        session.mount("https://", transport)
+        session.mount("http://", transport)
+        return session
+
+    def build_lookup_session_with_fake_transport():
+        session = original_build_lookup_session()
         session.mount("https://", transport)
         session.mount("http://", transport)
         return session
 
     monkeypatch.setattr(
         http_session, "build_session", build_session_with_fake_transport
+    )
+    monkeypatch.setattr(
+        http_session, "build_lookup_session", build_lookup_session_with_fake_transport
     )
     return transport

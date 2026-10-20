@@ -1,0 +1,30 @@
+{% extends "admin/change_form.html" %}
+
+{% block form_top %}
+  {{ block.super }}
+  {% if change and has_change_permission %}
+    {# Enter submits with the form's first submit button: keep that the plain Save, ahead of the "Use this match" buttons. #}
+    <input type="submit" name="_save" value="Save" hidden>
+  {% endif %}
+{% endblock %}
+
+{% block object-tools-items %}
+  {% if search_available %}
+    <li><a href="{{ search_url }}">Search competitors</a></li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}
+
+{% block submit_buttons_bottom %}
+  {{ block.super }}
+  {% if change and has_change_permission %}
+    <div class="submit-row">
+      {% if is_draft %}
+        <input type="submit" name="_look_up_target_address" value="Look up the address again">
+      {% endif %}
+      {% for status, label in available_transitions %}
+        <button type="submit" class="button" name="_transition" value="{{ status }}">{{ label }}</button>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}

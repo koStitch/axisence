@@ -1,0 +1,48 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin/css/forms.css' %}">{% endblock %}
+
+{% block bodyclass %}{{ block.super }} app-research model-contact{% endblock %}
+
+{% block breadcrumbs %}
+<ol class="breadcrumbs">
+  <li><a href="{% url 'admin:index' %}">Home</a></li>
+  <li><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+  <li><a href="{% url 'admin:research_contact_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+  <li><a href="{{ contact_url }}">{{ contact }}</a></li>
+  <li aria-current="page">Retract</li>
+</ol>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <div class="module aligned">
+    {% if observation %}
+      <div class="form-row"><label>Observation</label><div class="readonly">{{ observation }}: {{ observation.value_summary }}</div></div>
+      <div class="form-row"><label>Contact</label><div class="readonly">{{ contact }}</div></div>
+    {% else %}
+      <div class="form-row"><label>Contact</label><div class="readonly">{{ contact }} and every observation of it</div></div>
+      <div class="form-row"><label>Competitor</label><div class="readonly">{{ contact.competitor }}</div></div>
+      <div class="form-row"><label>Date</label><div class="readonly">{{ contact.contact_date|date:"Y-m-d" }}</div></div>
+      <div class="form-row"><label>Method</label><div class="readonly">{{ contact.get_method_display }}</div></div>
+    {% endif %}
+  </div>
+  <p>A retraction is final. Record the correct value in a new contact afterwards.</p>
+  <form method="post" action="">
+    {% csrf_token %}
+    <fieldset class="module aligned">
+      <div class="form-row">
+        {{ form.reason.errors }}
+        <label class="required" for="{{ form.reason.id_for_label }}">Reason</label>
+        {{ form.reason }}
+        <div class="help">{{ form.reason.help_text }}</div>
+      </div>
+    </fieldset>
+    <div class="submit-row">
+      <input type="submit" value="Retract">
+      <a href="{{ contact_url }}" class="closelink">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
