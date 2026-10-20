@@ -1,0 +1,4 @@
+"1","209 Joralemon St, Brooklyn, NY, 11201","Match","Exact","209 JORALEMON ST, BROOKLYN, NY, 11201","-73.990738135081,40.692568162618","639432210","L"
+"2","620 Atlantic Ave, Brooklyn, NY, 11217","Match","Exact","620 ATLANTIC AVE, BROOKLYN, NY, 11217","-73.975875883873,40.683434691655","647356223","R"
+"3","99999 Nonexistent Fakestreet, Brooklyn, NY, 11217","No_Match"
+"10","120-55 Queens Blvd, Queens, NY, 11424","No_Match"

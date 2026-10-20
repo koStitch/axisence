@@ -1,0 +1,212 @@
+{
+  "variables": {
+    "DP02_0039EA": {
+      "label": "Annotation of Estimate!!FERTILITY!!Number of women 15 to 50 years old who had a birth in the past 12 months!!Unmarried women (widowed, divorced, and never married)!!Per 1,000 unmarried women",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0039PM": {
+      "label": "Percent Margin of Error!!FERTILITY!!Number of women 15 to 50 years old who had a birth in the past 12 months!!Unmarried women (widowed, divorced, and never married)!!Per 1,000 unmarried women",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0039PE": {
+      "label": "Percent!!FERTILITY!!Number of women 15 to 50 years old who had a birth in the past 12 months!!Unmarried women (widowed, divorced, and never married)!!Per 1,000 unmarried women",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0039MA": {
+      "label": "Annotation of Margin of Error!!FERTILITY!!Number of women 15 to 50 years old who had a birth in the past 12 months!!Unmarried women (widowed, divorced, and never married)!!Per 1,000 unmarried women",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0016PEA": {
+      "label": "Annotation of Percent!!HOUSEHOLDS BY TYPE!!Total households!!Average household size",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0016PMA": {
+      "label": "Annotation of Percent Margin of Error!!HOUSEHOLDS BY TYPE!!Total households!!Average household size",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0001EA": {
+      "label": "Annotation of Estimate!!HOUSEHOLDS BY TYPE!!Total households",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0001PE": {
+      "label": "Percent!!HOUSEHOLDS BY TYPE!!Total households",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0001PM": {
+      "label": "Percent Margin of Error!!HOUSEHOLDS BY TYPE!!Total households",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0001MA": {
+      "label": "Annotation of Margin of Error!!HOUSEHOLDS BY TYPE!!Total households",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0039E": {
+      "label": "Estimate!!FERTILITY!!Number of women 15 to 50 years old who had a birth in the past 12 months!!Unmarried women (widowed, divorced, and never married)!!Per 1,000 unmarried women",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0039M": {
+      "label": "Margin of Error!!FERTILITY!!Number of women 15 to 50 years old who had a birth in the past 12 months!!Unmarried women (widowed, divorced, and never married)!!Per 1,000 unmarried women",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0001PMA": {
+      "label": "Annotation of Percent Margin of Error!!HOUSEHOLDS BY TYPE!!Total households",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "NAME": {
+      "label": "Geographic Area Name",
+      "concept": "Selected Social Characteristics in the United States;Selected Social Characteristics in Puerto Rico;Selected Economic Characteristics;Selected Housing Characteristics;ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0001PEA": {
+      "label": "Annotation of Percent!!HOUSEHOLDS BY TYPE!!Total households",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0016EA": {
+      "label": "Annotation of Estimate!!HOUSEHOLDS BY TYPE!!Total households!!Average household size",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0016PM": {
+      "label": "Percent Margin of Error!!HOUSEHOLDS BY TYPE!!Total households!!Average household size",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0016PE": {
+      "label": "Percent!!HOUSEHOLDS BY TYPE!!Total households!!Average household size",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0016MA": {
+      "label": "Annotation of Margin of Error!!HOUSEHOLDS BY TYPE!!Total households!!Average household size",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0016E": {
+      "label": "Estimate!!HOUSEHOLDS BY TYPE!!Total households!!Average household size",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "float",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0016M": {
+      "label": "Margin of Error!!HOUSEHOLDS BY TYPE!!Total households!!Average household size",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "float",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0039PEA": {
+      "label": "Annotation of Percent!!FERTILITY!!Number of women 15 to 50 years old who had a birth in the past 12 months!!Unmarried women (widowed, divorced, and never married)!!Per 1,000 unmarried women",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0001M": {
+      "label": "Margin of Error!!HOUSEHOLDS BY TYPE!!Total households",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0001E": {
+      "label": "Estimate!!HOUSEHOLDS BY TYPE!!Total households",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "GEO_ID": {
+      "label": "Geography",
+      "concept": "Selected Social Characteristics in the United States;Selected Social Characteristics in Puerto Rico;Selected Economic Characteristics;Selected Housing Characteristics;ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0039PMA": {
+      "label": "Annotation of Percent Margin of Error!!FERTILITY!!Number of women 15 to 50 years old who had a birth in the past 12 months!!Unmarried women (widowed, divorced, and never married)!!Per 1,000 unmarried women",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "string",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    }
+  }
+}

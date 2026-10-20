@@ -26,6 +26,9 @@ INSTALLED_APPS = [
     "django.contrib.gis",
     "axisence.accounts",
     "axisence.diagnostics",
+    "axisence.ingestion",
+    "axisence.providers",
+    "axisence.demographics",
 ]
 
 MIDDLEWARE = [
@@ -70,6 +73,14 @@ DATABASES = {
 
 AUTH_USER_MODEL = "accounts.User"
 
+# Public data pipeline. Both values are optional: a blank token sends no Socrata app
+# token, and a blank key stops only the Census commands, before any request.
+SOCRATA_APP_TOKEN = environment.read_string("SOCRATA_APP_TOKEN", default="")
+CENSUS_API_KEY = environment.read_string("CENSUS_API_KEY", default="")
+
+# Immutable raw snapshots the pipeline writes and parses; git-ignored.
+RAW_DATA_DIRECTORY = BASE_DIR / "data" / "raw"
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",  # noqa: E501
@@ -98,8 +109,13 @@ STATIC_URL = "static/"
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    # urllib3 logs request URLs, which carry the Census key in the query string, on
+    # retries and at DEBUG level. The filter redacts keys from every record.
+    "filters": {
+        "redact_secrets": {"()": "axisence.ingestion.redaction.RedactSecretsFilter"},
+    },
     "handlers": {
-        "console": {"class": "logging.StreamHandler"},
+        "console": {"class": "logging.StreamHandler", "filters": ["redact_secrets"]},
     },
     "root": {
         "handlers": ["console"],

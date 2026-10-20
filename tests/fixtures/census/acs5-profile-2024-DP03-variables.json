@@ -1,0 +1,212 @@
+{
+  "variables": {
+    "DP03_0067E": {
+      "label": "Estimate!!INCOME AND BENEFITS (IN 2024 INFLATION-ADJUSTED DOLLARS)!!Total households!!With Social Security!!Mean Social Security income (dollars)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0067M": {
+      "label": "Margin of Error!!INCOME AND BENEFITS (IN 2024 INFLATION-ADJUSTED DOLLARS)!!Total households!!With Social Security!!Mean Social Security income (dollars)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0067EA": {
+      "label": "Annotation of Estimate!!INCOME AND BENEFITS (IN 2024 INFLATION-ADJUSTED DOLLARS)!!Total households!!With Social Security!!Mean Social Security income (dollars)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0067MA": {
+      "label": "Annotation of Margin of Error!!INCOME AND BENEFITS (IN 2024 INFLATION-ADJUSTED DOLLARS)!!Total households!!With Social Security!!Mean Social Security income (dollars)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0067PM": {
+      "label": "Percent Margin of Error!!INCOME AND BENEFITS (IN 2024 INFLATION-ADJUSTED DOLLARS)!!Total households!!With Social Security!!Mean Social Security income (dollars)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0067PE": {
+      "label": "Percent!!INCOME AND BENEFITS (IN 2024 INFLATION-ADJUSTED DOLLARS)!!Total households!!With Social Security!!Mean Social Security income (dollars)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0001E": {
+      "label": "Estimate!!EMPLOYMENT STATUS!!Population 16 years and over",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0001M": {
+      "label": "Margin of Error!!EMPLOYMENT STATUS!!Population 16 years and over",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0067PEA": {
+      "label": "Annotation of Percent!!INCOME AND BENEFITS (IN 2024 INFLATION-ADJUSTED DOLLARS)!!Total households!!With Social Security!!Mean Social Security income (dollars)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0025E": {
+      "label": "Estimate!!COMMUTING TO WORK!!Workers 16 years and over!!Mean travel time to work (minutes)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "float",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0025M": {
+      "label": "Margin of Error!!COMMUTING TO WORK!!Workers 16 years and over!!Mean travel time to work (minutes)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "float",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "NAME": {
+      "label": "Geographic Area Name",
+      "concept": "Selected Social Characteristics in the United States;Selected Social Characteristics in Puerto Rico;Selected Economic Characteristics;Selected Housing Characteristics;ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0001EA": {
+      "label": "Annotation of Estimate!!EMPLOYMENT STATUS!!Population 16 years and over",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0001PE": {
+      "label": "Percent!!EMPLOYMENT STATUS!!Population 16 years and over",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0001PM": {
+      "label": "Percent Margin of Error!!EMPLOYMENT STATUS!!Population 16 years and over",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0001MA": {
+      "label": "Annotation of Margin of Error!!EMPLOYMENT STATUS!!Population 16 years and over",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0025PMA": {
+      "label": "Annotation of Percent Margin of Error!!COMMUTING TO WORK!!Workers 16 years and over!!Mean travel time to work (minutes)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0001PEA": {
+      "label": "Annotation of Percent!!EMPLOYMENT STATUS!!Population 16 years and over",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0025PEA": {
+      "label": "Annotation of Percent!!COMMUTING TO WORK!!Workers 16 years and over!!Mean travel time to work (minutes)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0001PMA": {
+      "label": "Annotation of Percent Margin of Error!!EMPLOYMENT STATUS!!Population 16 years and over",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0025EA": {
+      "label": "Annotation of Estimate!!COMMUTING TO WORK!!Workers 16 years and over!!Mean travel time to work (minutes)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0025MA": {
+      "label": "Annotation of Margin of Error!!COMMUTING TO WORK!!Workers 16 years and over!!Mean travel time to work (minutes)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0025PM": {
+      "label": "Percent Margin of Error!!COMMUTING TO WORK!!Workers 16 years and over!!Mean travel time to work (minutes)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0025PE": {
+      "label": "Percent!!COMMUTING TO WORK!!Workers 16 years and over!!Mean travel time to work (minutes)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "GEO_ID": {
+      "label": "Geography",
+      "concept": "Selected Social Characteristics in the United States;Selected Social Characteristics in Puerto Rico;Selected Economic Characteristics;Selected Housing Characteristics;ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0067PMA": {
+      "label": "Annotation of Percent Margin of Error!!INCOME AND BENEFITS (IN 2024 INFLATION-ADJUSTED DOLLARS)!!Total households!!With Social Security!!Mean Social Security income (dollars)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "string",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    }
+  }
+}

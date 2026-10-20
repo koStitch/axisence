@@ -1,0 +1,212 @@
+{
+  "variables": {
+    "DP04_0004EA": {
+      "label": "Annotation of Estimate!!HOUSING OCCUPANCY!!Total housing units!!Homeowner vacancy rate",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0101PEA": {
+      "label": "Annotation of Percent!!SELECTED MONTHLY OWNER COSTS (SMOC)!!Housing units with a mortgage!!Median (dollars)",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0004MA": {
+      "label": "Annotation of Margin of Error!!HOUSING OCCUPANCY!!Total housing units!!Homeowner vacancy rate",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0004PM": {
+      "label": "Percent Margin of Error!!HOUSING OCCUPANCY!!Total housing units!!Homeowner vacancy rate",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "int",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0004PE": {
+      "label": "Percent!!HOUSING OCCUPANCY!!Total housing units!!Homeowner vacancy rate",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "int",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0001PEA": {
+      "label": "Annotation of Percent!!HOUSING OCCUPANCY!!Total housing units",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0101PMA": {
+      "label": "Annotation of Percent Margin of Error!!SELECTED MONTHLY OWNER COSTS (SMOC)!!Housing units with a mortgage!!Median (dollars)",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0004PEA": {
+      "label": "Annotation of Percent!!HOUSING OCCUPANCY!!Total housing units!!Homeowner vacancy rate",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0004PMA": {
+      "label": "Annotation of Percent Margin of Error!!HOUSING OCCUPANCY!!Total housing units!!Homeowner vacancy rate",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0101M": {
+      "label": "Margin of Error!!SELECTED MONTHLY OWNER COSTS (SMOC)!!Housing units with a mortgage!!Median (dollars)",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "int",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0101E": {
+      "label": "Estimate!!SELECTED MONTHLY OWNER COSTS (SMOC)!!Housing units with a mortgage!!Median (dollars)",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "int",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0101EA": {
+      "label": "Annotation of Estimate!!SELECTED MONTHLY OWNER COSTS (SMOC)!!Housing units with a mortgage!!Median (dollars)",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0101MA": {
+      "label": "Annotation of Margin of Error!!SELECTED MONTHLY OWNER COSTS (SMOC)!!Housing units with a mortgage!!Median (dollars)",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0001M": {
+      "label": "Margin of Error!!HOUSING OCCUPANCY!!Total housing units",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "int",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0001E": {
+      "label": "Estimate!!HOUSING OCCUPANCY!!Total housing units",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "int",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0101PE": {
+      "label": "Percent!!SELECTED MONTHLY OWNER COSTS (SMOC)!!Housing units with a mortgage!!Median (dollars)",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "int",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0101PM": {
+      "label": "Percent Margin of Error!!SELECTED MONTHLY OWNER COSTS (SMOC)!!Housing units with a mortgage!!Median (dollars)",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "int",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0004M": {
+      "label": "Margin of Error!!HOUSING OCCUPANCY!!Total housing units!!Homeowner vacancy rate",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "float",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0004E": {
+      "label": "Estimate!!HOUSING OCCUPANCY!!Total housing units!!Homeowner vacancy rate",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "float",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "NAME": {
+      "label": "Geographic Area Name",
+      "concept": "Selected Social Characteristics in the United States;Selected Social Characteristics in Puerto Rico;Selected Economic Characteristics;Selected Housing Characteristics;ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0001EA": {
+      "label": "Annotation of Estimate!!HOUSING OCCUPANCY!!Total housing units",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0001MA": {
+      "label": "Annotation of Margin of Error!!HOUSING OCCUPANCY!!Total housing units",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0001PM": {
+      "label": "Percent Margin of Error!!HOUSING OCCUPANCY!!Total housing units",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "int",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0001PE": {
+      "label": "Percent!!HOUSING OCCUPANCY!!Total housing units",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "int",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0001PMA": {
+      "label": "Annotation of Percent Margin of Error!!HOUSING OCCUPANCY!!Total housing units",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "GEO_ID": {
+      "label": "Geography",
+      "concept": "Selected Social Characteristics in the United States;Selected Social Characteristics in Puerto Rico;Selected Economic Characteristics;Selected Housing Characteristics;ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    }
+  }
+}

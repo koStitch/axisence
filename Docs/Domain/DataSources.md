@@ -15,7 +15,12 @@ New York regulates childcare through two agencies, and the split matters: no sin
 
 ### NY State dataset: Child Care Regulated Programs
 
-Published by the NY State Office of Children and Family Services on data.ny.gov ([catalog entry](https://catalog.data.gov/dataset/child-care-regulated-programs)). One row per regulated program, statewide.
+Published daily by the NY State Office of Children and Family Services on data.ny.gov, dataset identifier `cb42-qumz` ([catalog entry](https://catalog.data.gov/dataset/child-care-regulated-programs)). One row per regulated program, statewide: about 16,800 rows.
+
+Access:
+
+1. Full CSV export, with display names as headers: `https://data.ny.gov/api/views/cb42-qumz/rows.csv?accessType=DOWNLOAD`.
+2. Metadata, including the last update time `rowsUpdatedAt` in Unix seconds: `https://data.ny.gov/api/views/cb42-qumz.json`. The metadata lists three computed region columns, `NYS Municipal Boundaries 2`, `New York Zip Codes 2`, and `Counties 2`, that the export does not contain.
 
 Columns: `Facility ID`, `Program Type`, `Region Code`, `County`, `Facility Status`, `Facility Name`, `Facility Opened Date`, `License Issue Date`, `License Expiration Date`, `Address Omitted`, `Street Number`, `Street Name`, `Additional Address`, `Floor`, `Apartment`, `City`, `State`, `Zip Code`, `Phone Number Omitted`, `Phone Number`, `Phone Extension`, `Provider Name`, `School District Name`, `Capacity Description`, `Infant Capacity`, `Toddler Capacity`, `Preschool Capacity`, `School Age Capacity`, `Total Capacity`, `Program Profile`, `Latitude`, `Longitude`, `Georeference`.
 
@@ -42,6 +47,15 @@ Quirks:
 9. `Facility Status` includes `License`, `Registration`, `Pending Revocation`, `Pending Revocation and Denial`, `Suspended`, and blank values.
 10. Free-text fields are inconsistently cased and spelled (`Long Island CIty`).
 11. In New York City rows, `County` holds the borough name (`Brooklyn`, `Manhattan`, `Staten Island`, `Bronx`, `Queens`), not the county name (`Kings`, `New York`, `Richmond`).
+12. `Zip Code` holds five digits in most rows, nine digits run together (`122071413`) in a few hundred, and rarely an invalid value such as a four-digit code.
+13. `Street Number` holds digits, Queens-style hyphenated numbers (`35-59`, `5-36`), letters (`12A`, `12-A`, `12 A`), fractions (`12 1/2`), direction words (`425 W`, `12 East`), and rarely other text (`Lot 4`, `*`, `-`).
+14. `Street Name` sometimes carries suite, building, floor, P.O. box, or city text, mostly after a comma (`, SUITE 3H`, `, BLDG. A`, `, P.O. BOX 404`, `, ALBANY, NY`) and sometimes without one (`Suite 2`, `ROOM 132`). Runs of double spaces are common.
+15. Rows with an omitted address have a blank street and blank coordinates, but keep `City` and `Zip Code`.
+16. `Phone Number` is formatted `(999)999-9999` or blank. `Phone Extension` holds digits, and rarely filler such as `__________` or a word.
+17. Names contain U+2019 RIGHT SINGLE QUOTATION MARK in place of an apostrophe, and occasional accented letters.
+18. `Georeference` repeats `Latitude` and `Longitude` as `POINT (<longitude> <latitude>)`, and is not read.
+19. `Program Profile` is the program's public OCFS profile page, `https://hs.ocfs.ny.gov/dcfs/Profile/Index/<Facility ID>`.
+20. A row can publish `0` for both `Latitude` and `Longitude`, a placeholder for unknown coordinates. The point lies outside the state, so ingestion stores no coordinates, with a field warning, and geocodes the published address.
 
 ### NYC Health dataset: Active NYC Health Code Regulated Child Care Programs
 
@@ -95,6 +109,18 @@ Quirks:
 11. `Borough` is blank in rare rows. The first digit of `BBL` or `Community Board` gives the borough. The zip code is only a fallback, because a few zip codes cross borough lines.
 12. `Census Tract` repeats across boroughs, so a join to Census data adds the county code derived from the borough. The tract is the 2020 vintage, while `NTA Code` follows the 2010 boundaries, so `NTA Code` is not used: a neighborhood, when a report needs one, comes from the point and the 2020 boundaries.
 13. `Program Type` can carry values beyond the documented ones, in a different case. Ingestion accepts and records an unknown program type rather than failing.
+14. Program names contain U+2019 RIGHT SINGLE QUOTATION MARK in place of an apostrophe, and are sometimes mixed case.
+15. One row has a blank `Phone Number`.
+16. Hyphenated house numbers sometimes have spaces around the hyphen (`45 - 12 BELL BLVD`).
+17. `BIN` is blank in some rows, beyond the rows without any Geosupport match.
+
+### How the pipeline reads both datasets
+
+1. Each provider run makes two requests to its publisher: the metadata, for `rowsUpdatedAt`, and the full CSV export. The export's headers are the columns' display names.
+2. Before anything is written, the export must contain every expected header: all the NY State columns except `Georeference`, and all the NYC Health columns except `NTA Code`. A missing header fails the run; extra columns are ignored.
+3. Rows whose identifier is blank, repeated, or longer than 20 characters are skipped and logged by row number. A cell that cannot be used is stored as unknown, with a field warning naming the source, identifier, and column, logged at most once per column and row. Unusable cells include unparseable values and values too long for their column: 20 characters for `Zip Code` and for the NY State `Program Type` and `Region Code`, 30 for `Phone Number`, and 255 for any other text. Counts above 2,147,483,647 are unusable too.
+4. Without an app token, requests share Socrata's anonymous throttling pool. When `SOCRATA_APP_TOKEN` is set, it is sent in the `X-App-Token` header.
+5. Socrata's SODA3 endpoints require an app token, while the export endpoint does not, so the pipeline reads the export.
 
 ### Overlap between the two
 
@@ -109,10 +135,61 @@ Overlap is measured, not assumed, by matching on normalized address and zip code
 A competitor is what a report presents: the providers one operator runs at one location, drawn from either dataset.
 
 1. A provider keeps the regulator's unit and identifier: one NY State `Facility ID` or one NYC Health `DCID`. A center with an infant-toddler and a preschool program is two providers and one competitor.
-2. Providers join one competitor only when their normalized address, zip code, and normalized name all match. The rule is the same within one dataset and across both.
-3. Providers at one address whose names are similar but not equal are flagged for a researcher to confirm before they join. Providers at one address under unrelated names stay separate competitors, as when a school-based program and an unrelated center share a building.
-4. Every provider kind in the table above is in scope. School-based programs are competitors for the ages they serve and are labelled as school-based, because their capacity is often unpublished.
-5. Rows without coordinates in either dataset are geocoded from their published address with one geocoder shared by both datasets. An omitted address is never geocoded.
+2. Every provider kind in the table above is in scope. School-based programs are competitors for the ages they serve and are labelled as school-based, because their capacity is often unpublished.
+3. A provider holds its source's current published values only. A provider absent from its source's latest export is marked missing from that run on, never deleted, and is reactivated when it reappears. Only a run of the provider's own source changes its activity.
+4. A provider run refuses to mark more than 10% of its source's active providers missing, before writing anything, unless it is run with `--allow-mass-disappearance`.
+
+#### Matching keys
+
+Grouping compares three keys, recomputed from the published values on every run. `axisence/providers/normalization.py` holds the exact rules and tables.
+
+1. Display name: the published name without double quotation marks, with whitespace collapsed.
+2. Name key: the name uppercased, `DAYCARE` split into `DAY CARE`, apostrophes (`'`, U+2018, U+2019, `` ` ``) and periods deleted, every other punctuation mark turned into a space, the legal-form words `INC`, `LLC`, `CORP`, `CORPORATION`, `LTD`, and `CO` dropped, and a leading `THE` dropped. `The Kids' Daycare, Inc.` becomes `KIDS DAY CARE`.
+3. Address key: the house number and street, uppercased and cut at the first comma, with apostrophes and periods deleted. A Queens-style house number keeps its hyphen without spaces (`45 - 12` becomes `45-12`). Unit text is removed: P.O. boxes, suite, apartment, unit, room, building, and store designators with their numbers, `#` numbers, floors, and basements. Remaining punctuation becomes spaces, ordinal suffixes are dropped (`4TH` becomes `4`), and street types and directions take their USPS Publication 28 abbreviations (`STREET` becomes `ST`, `WEST` becomes `W`). `150 West 4th Street, 2nd Floor` becomes `150 W 4 ST`.
+4. Zip key: a five-digit zip code, or the first five digits of a nine-digit one, with or without its hyphen. Anything else is no zip key.
+5. Two name keys are similar when one contains the other, or when their `difflib.SequenceMatcher` ratio is at least 0.8.
+
+Ordinal words (`FIRST`), `&` versus `AND`, and `SAINT` versus `ST` are not normalized: measured on both datasets, doing so would change at most three groups.
+
+#### Grouping rules
+
+| Rule | Meaning |
+| --- | --- |
+| A | A provider without a competitor joins the one competitor that has a member with equal address, zip, and name keys. Without one, it gets a competitor of its own. A provider missing any key, as every omitted address is, always gets a competitor of its own. |
+| B | A placed provider keeps its competitor on every later run. Only a researcher's decision moves it. |
+| C | The rule is the same within one dataset and across both. A provider a researcher moved stays where it was moved, even when its keys still equal its old competitor's members. |
+| D | When a placed provider's published name, street address, or zip code changes and its keys change with it, the provider keeps its competitor and a changed-keys flag asks a researcher to confirm. A key change caused by new normalization alone raises no flag. |
+| E | A pair of competitors a researcher declared different operators is never proposed again. |
+| F | A competitor is active while any of its providers is active. A competitor left without providers by a researcher's decision is retired, naming the competitor that received its providers. |
+| G | Automation never merges existing competitors. Only a researcher's decision does. |
+
+A provider's keys may equal members of several competitors, for example after a researcher moved one. It then gets a competitor of its own, with an equal-keys flag towards each of them. A provider whose name is similar to, but not equal to, a member at the same address and zip raises a similar-name flag. Flags are raised only when a provider is placed, and at most one open proposal exists per pair of competitors.
+
+#### Review flags and researcher decisions
+
+| Flag reason | Question | Decisions |
+| --- | --- | --- |
+| Similar name at one address | Are the flagged and the proposed competitor one operator? | Same operator merges the flagged competitor into the proposed one; different operators separates the pair for good. |
+| Equal keys in several competitors | Does the provider's own competitor belong with the proposed one? | As for a similar name. |
+| Changed keys | Does the provider still belong to its competitor? | Provider stays; or the researcher moves the provider, which resolves the flag. |
+
+A researcher can also move any provider to another competitor or to a new one of its own, and merge any competitor into another. Every decision is logged with its researcher and time. When a merge or move retires a competitor, its open flags are re-pointed to the receiving competitor, and a proposal that would pair a competitor with itself or repeat another open proposal is closed as superseded.
+
+#### Competitor summary
+
+A competitor shows its representative provider's display name, street address, borough, and location. The representative is the first member when sorted by: active before missing, a published street address first, a location first, NYC Health before NY State, then source identifier. The competitor is school-based when any member is.
+
+### Geocoding
+
+Providers that publish an address but no coordinates are geocoded with the US Census Geocoder batch endpoint, `https://geocoding.geo.census.gov/geocoder/locations/addressbatch`, with benchmark `Public_AR_Current`. It needs no key and takes up to 10,000 addresses per request.
+
+1. The request is a multipart form: the field `benchmark` and the file field `addressFile`, a CSV without a header of identifier, street, city, state, and zip code. The street is the published house number and street, cut at the first comma and without unit text, otherwise spelled as published. The city is the NY State `City`, or the borough name for NYC Health.
+2. The response is CSV without a header, every field quoted. A `Match` line holds the identifier, the input address, `Match`, the match type (`Exact` or `Non_Exact`), the matched address, `"<longitude>,<latitude>"` in one field, the TIGER line identifier, and the side of the street. A `No_Match` or `Tie` line holds three fields. Lines are matched to addresses by identifier, never by position.
+3. Only a `Match` inside the NY State bounding box counts as a location. Positions are interpolated along street address ranges, so they are tens of meters less precise than the building-level positions publishers provide.
+4. Queens-style hyphenated house numbers may fail to match.
+5. A provider is a candidate when its regulator publishes no coordinates and it has a house number and street: for NY State a `Street Number` and a `Street Name`, for NYC Health a `Street Address` of at least two words that starts with a digit. An omitted address is never a candidate. A failed attempt is retried on every run; a match is attempted again only when the published address changes.
+6. Publisher coordinates always win over a geocoded location. A geocoded location is kept only while the published address that produced it is unchanged.
+7. Each provider records where its location came from (publisher, geocoder, or none), the address sent, the matched address, the time of the latest attempt, and its outcome.
 
 ## Demographics
 
@@ -122,6 +199,25 @@ US Census Bureau American Community Survey 5-year estimates, through the Census 
 2. Data profile tables: `DP05` demographics and age, `DP03` income and employment, `DP02` education, `DP04` housing.
 3. Age brackets are fixed by the Census: "Under 5 years" and "5 to 9 years". A report figure such as "children 0–5" states which bracket it uses.
 4. Every figure carries its table, survey vintage, and margin of error, so a report can cite it.
+5. NY State has 1,824 tabulation areas. Their codes can start with zero (`06390`), so they are stored and compared as text.
+
+### Census Data API
+
+1. Every request needs a key. A request without one is redirected to `https://api.census.gov/data/missing_key.html`, and one with an invalid key to `/data/invalid_key.html`; both answer HTTP 200 with an HTML page, so a 200 alone does not prove success.
+2. The data profile endpoint of a vintage is `https://api.census.gov/data/<vintage>/acs/acs5/profile`.
+3. `ucgid=pseudo(0400000US36$8600000)` selects every NY State tabulation area in one request. Adding `for=zip code tabulation area:*` changes nothing. A response is a JSON array of arrays: a header row, then one row per area, ending with `GEO_ID`, `NAME`, and `ucgid`. `ucgid` and `GEO_ID` hold `860Z200US<code>`, and `NAME` holds `ZCTA5 <code>`.
+4. `get=group(<table>)` returns a whole table: eight columns per variable code, `<code>E` (estimate), `<code>EA`, `<code>M` (margin of error), `<code>MA`, `<code>PE` (percent), `<code>PEA`, `<code>PM` (percent margin of error), and `<code>PMA`. The `A` columns are annotations and are not stored.
+5. Codes read like `DP05_0005`. Vintage 2024 has 154 codes in `DP02`, 137 in `DP03`, 143 in `DP04`, and 108 in `DP05`: 542 codes and 988,608 figures for NY State per vintage.
+6. Values are JSON strings, parsed as decimals. Sentinels stand for unavailable values: `-999999999`, `-888888888`, `-666666666`, `-555555555`, `-333333333`, and `-222222222`, also spelled with decimals (`-666666666.0`, `-222222222.00`), so they are compared numerically. Sentinels, empty strings, and nulls are stored as unknown. Some values are capped, such as a median published as `4001` with the annotation `4,000+`.
+7. Labels come from `https://api.census.gov/data/<vintage>/acs/acs5/profile/groups/<table>.json`: `DP05_0005E` is `Estimate!!SEX AND AGE!!Total population!!Under 5 years`, and `DP05_0005PE` is the same label under `Percent`.
+8. The Census Bureau releases a new 5-year vintage each December and can renumber codes between vintages, so variables and labels are kept per vintage, and vintages are kept side by side.
+
+### Tabulation-area boundaries
+
+1. Boundaries come from the 2020 cartographic boundary file `https://www2.census.gov/geo/tiger/GENZ2020/shp/cb_2020_us_zcta520_500k.zip`: 1:500,000 scale, clipped to shorelines, 33,791 areas nationwide. Every ACS release from 2020 to 2029 uses these 2020 areas.
+2. The zip holds one shapefile layer, `cb_2020_us_zcta520_500k`, with the fields `ZCTA5CE20` (the code), `AFFGEOID20` (`860Z200US<code>`), `GEOID20`, `NAME20`, `LSAD20` (`Z5`), `ALAND20`, and `AWATER20`. Features are polygons or multipolygons.
+3. The coordinate system is NAD83, SRID 4269. Boundaries are stored in WGS 84, SRID 4326.
+4. The boundaries are simplified, so a point within tens of meters of an edge can fall in the neighbouring area.
 
 ## Transit
 

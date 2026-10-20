@@ -1,0 +1,212 @@
+{
+  "variables": {
+    "DP05_0001PEA": {
+      "label": "Annotation of Percent!!SEX AND AGE!!Total population",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0001PMA": {
+      "label": "Annotation of Percent Margin of Error!!SEX AND AGE!!Total population",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0032PMA": {
+      "label": "Annotation of Percent Margin of Error!!SEX AND AGE!!Total population!!65 years and over!!Sex ratio (males per 100 females)",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0032E": {
+      "label": "Estimate!!SEX AND AGE!!Total population!!65 years and over!!Sex ratio (males per 100 females)",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "float",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0032M": {
+      "label": "Margin of Error!!SEX AND AGE!!Total population!!65 years and over!!Sex ratio (males per 100 females)",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "float",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0032PEA": {
+      "label": "Annotation of Percent!!SEX AND AGE!!Total population!!65 years and over!!Sex ratio (males per 100 females)",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0005M": {
+      "label": "Margin of Error!!SEX AND AGE!!Total population!!Under 5 years",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "int",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0005E": {
+      "label": "Estimate!!SEX AND AGE!!Total population!!Under 5 years",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "int",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0001M": {
+      "label": "Margin of Error!!SEX AND AGE!!Total population",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "int",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0001E": {
+      "label": "Estimate!!SEX AND AGE!!Total population",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "int",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0001EA": {
+      "label": "Annotation of Estimate!!SEX AND AGE!!Total population",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0032EA": {
+      "label": "Annotation of Estimate!!SEX AND AGE!!Total population!!65 years and over!!Sex ratio (males per 100 females)",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0001MA": {
+      "label": "Annotation of Margin of Error!!SEX AND AGE!!Total population",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0001PM": {
+      "label": "Percent Margin of Error!!SEX AND AGE!!Total population",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "int",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0001PE": {
+      "label": "Percent!!SEX AND AGE!!Total population",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "int",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0032MA": {
+      "label": "Annotation of Margin of Error!!SEX AND AGE!!Total population!!65 years and over!!Sex ratio (males per 100 females)",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0005PEA": {
+      "label": "Annotation of Percent!!SEX AND AGE!!Total population!!Under 5 years",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0032PM": {
+      "label": "Percent Margin of Error!!SEX AND AGE!!Total population!!65 years and over!!Sex ratio (males per 100 females)",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "int",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0032PE": {
+      "label": "Percent!!SEX AND AGE!!Total population!!65 years and over!!Sex ratio (males per 100 females)",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "int",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0005PMA": {
+      "label": "Annotation of Percent Margin of Error!!SEX AND AGE!!Total population!!Under 5 years",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "NAME": {
+      "label": "Geographic Area Name",
+      "concept": "Selected Social Characteristics in the United States;Selected Social Characteristics in Puerto Rico;Selected Economic Characteristics;Selected Housing Characteristics;ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0005EA": {
+      "label": "Annotation of Estimate!!SEX AND AGE!!Total population!!Under 5 years",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0005MA": {
+      "label": "Annotation of Margin of Error!!SEX AND AGE!!Total population!!Under 5 years",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0005PM": {
+      "label": "Percent Margin of Error!!SEX AND AGE!!Total population!!Under 5 years",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "float",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0005PE": {
+      "label": "Percent!!SEX AND AGE!!Total population!!Under 5 years",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "float",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "GEO_ID": {
+      "label": "Geography",
+      "concept": "Selected Social Characteristics in the United States;Selected Social Characteristics in Puerto Rico;Selected Economic Characteristics;Selected Housing Characteristics;ACS Demographic and Housing Estimates",
+      "predicateType": "string",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    }
+  }
+}
