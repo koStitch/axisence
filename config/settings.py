@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "axisence.providers",
     "axisence.demographics",
     "axisence.research",
+    "axisence.reports",
 ]
 
 MIDDLEWARE = [
@@ -83,6 +84,10 @@ CENSUS_API_KEY = environment.read_string("CENSUS_API_KEY", default="")
 # Immutable raw snapshots the pipeline writes and parses; git-ignored.
 RAW_DATA_DIRECTORY = BASE_DIR / "data" / "raw"
 
+# Generated client reports: confidential, git-ignored, and never deleted or
+# overwritten by the application.
+REPORT_DIRECTORY = BASE_DIR / "data" / "private" / "reports"
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",  # noqa: E501
@@ -126,6 +131,7 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "filters": ["redact_secrets", "redact_target_addresses"],
         },
+        "discard": {"class": "logging.NullHandler"},
     },
     "root": {
         "handlers": ["console"],
@@ -136,9 +142,21 @@ LOGGING = {
     # or a level of its own, the django logger passes its records to root once, at
     # DJANGO_LOG_LEVEL. In debug mode Django's SQL logger writes every statement with
     # its parameters at DEBUG, and those parameters hold research target addresses and
-    # call notes, so it stays at INFO whatever DJANGO_LOG_LEVEL says.
+    # call notes, so it stays at INFO whatever DJANGO_LOG_LEVEL says. WeasyPrint's and
+    # fontTools' records can quote the HTML, CSS, or text of a report, which holds the
+    # client's organization and research values, so they are discarded.
     "loggers": {
         "django": {"handlers": [], "level": "NOTSET"},
         "django.db.backends": {"handlers": [], "level": "INFO"},
+        "weasyprint": {
+            "handlers": ["discard"],
+            "level": "CRITICAL",
+            "propagate": False,
+        },
+        "fontTools": {
+            "handlers": ["discard"],
+            "level": "CRITICAL",
+            "propagate": False,
+        },
     },
 }

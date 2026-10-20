@@ -8,11 +8,17 @@ from django.utils import timezone
 
 from axisence.providers.models import Competitor
 from axisence.research import contacts
-from axisence.research.current_values import Slot, load_current_values
+from axisence.research.current_values import (
+    Slot,
+    compute_current_values,
+    load_current_values,
+)
 from axisence.research.merges import MergeChains
 from axisence.research.models import (
     DiscountKind,
+    Observation,
     ObservationKind,
+    ParkingAvailability,
     PricePeriod,
 )
 from tests.providers.factories import make_competitor, make_researcher
@@ -73,6 +79,15 @@ def _current(competitor):
 def _price_slot(age_group, schedule):
     return Slot(
         ObservationKind.PRICE, age_group_id=age_group.pk, schedule_id=schedule.pk
+    )
+
+
+def _current_as_of(competitor, moment):
+    return compute_current_values(
+        Observation.objects.filter(contact__competitor=competitor).select_related(
+            "contact"
+        ),
+        as_of=moment,
     )
 
 
@@ -251,3 +266,96 @@ def test_observations_of_merged_competitors_count_with_their_own_dates(researche
     assert current_slot.contact.competitor_id == first.pk
     assert current_slot.contact.contact_date == SECOND_DAY
     assert current_slot.observations[0].weeks_open_per_year == 50
+
+
+def test_as_of_a_moment_a_contact_entered_later_does_not_count(competitor, researcher):
+    age_group, schedule = _definitions(competitor, researcher)
+    moment = timezone.now()
+    older = make_contact(
+        competitor=competitor,
+        researcher=researcher,
+        contact_date=FIRST_DAY,
+        entered_at=moment - timedelta(hours=1),
+    )
+    older_price = _price(older, age_group, schedule, "2400")
+    newer = make_contact(
+        competitor=competitor,
+        researcher=researcher,
+        contact_date=SECOND_DAY,
+        entered_at=moment + timedelta(hours=1),
+    )
+    newer_price = _price(newer, age_group, schedule, "2500")
+    slot = _price_slot(age_group, schedule)
+
+    assert _current_as_of(competitor, moment).slots[slot].observations == (older_price,)
+    assert _current(competitor).slots[slot].observations == (newer_price,)
+
+
+def test_as_of_a_moment_a_later_retraction_does_not_count(competitor, researcher):
+    retracted_observation_contact = make_contact(
+        competitor=competitor, researcher=researcher
+    )
+    retracted_observation = make_observation(
+        contact=retracted_observation_contact,
+        kind=ObservationKind.WEEKS_OPEN,
+        weeks_open_per_year=50,
+    )
+    retracted_contact = make_contact(competitor=competitor, researcher=researcher)
+    make_observation(
+        contact=retracted_contact, kind=ObservationKind.STATED_PLACES, stated_places=40
+    )
+    early_retraction_contact = make_contact(
+        competitor=competitor, researcher=researcher
+    )
+    early_retraction = make_observation(
+        contact=early_retraction_contact,
+        kind=ObservationKind.PARKING,
+        parking=ParkingAvailability.STREET_ONLY,
+    )
+    contacts.retract_observation(
+        observation=early_retraction, researcher=researcher, reason="Synthetic mistake"
+    )
+    moment = timezone.now()
+    contacts.retract_observation(
+        observation=retracted_observation,
+        researcher=researcher,
+        reason="Synthetic mistake",
+    )
+    contacts.retract_contact(
+        contact=retracted_contact, researcher=researcher, reason="Synthetic mistake"
+    )
+
+    as_of_moment = _current_as_of(competitor, moment).slots
+    as_of_now = _current_as_of(competitor, timezone.now()).slots
+
+    assert set(as_of_moment) == {
+        Slot(ObservationKind.WEEKS_OPEN),
+        Slot(ObservationKind.STATED_PLACES),
+    }
+    assert as_of_now == {}
+    assert _current(competitor).slots == {}
+
+
+def test_as_of_a_moment_a_later_retirement_does_not_retire(competitor, researcher):
+    age_group, schedule = _definitions(competitor, researcher)
+    moment = timezone.now()
+    contact = make_contact(
+        competitor=competitor,
+        researcher=researcher,
+        entered_at=moment - timedelta(hours=1),
+    )
+    _price(contact, age_group, schedule, "2400")
+    retiring = make_contact(
+        competitor=competitor,
+        researcher=researcher,
+        entered_at=moment + timedelta(hours=1),
+    )
+    make_observation(
+        contact=retiring, kind=ObservationKind.AGE_GROUP_RETIREMENT, age_group=age_group
+    )
+
+    as_of_moment = _current_as_of(competitor, moment)
+
+    assert as_of_moment.age_groups == (age_group,)
+    assert _price_slot(age_group, schedule) in as_of_moment.slots
+    assert _current(competitor).age_groups == ()

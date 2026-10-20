@@ -202,7 +202,7 @@ def default_provider_kinds() -> list[str]:
 
 
 class PermanentRecordError(Exception):
-    """A contact, observation, or research job was about to be changed or deleted."""
+    """A permanent record was about to be changed or deleted."""
 
 
 _RecordT = TypeVar("_RecordT", bound=models.Model)

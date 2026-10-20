@@ -223,7 +223,7 @@ US Census Bureau American Community Survey 5-year estimates, through the Census 
 3. `ucgid=pseudo(0400000US36$8600000)` selects every NY State tabulation area in one request. Adding `for=zip code tabulation area:*` changes nothing. A response is a JSON array of arrays: a header row, then one row per area, ending with `GEO_ID`, `NAME`, and `ucgid`. `ucgid` and `GEO_ID` hold `860Z200US<code>`, and `NAME` holds `ZCTA5 <code>`.
 4. `get=group(<table>)` returns a whole table: eight columns per variable code, `<code>E` (estimate), `<code>EA`, `<code>M` (margin of error), `<code>MA`, `<code>PE` (percent), `<code>PEA`, `<code>PM` (percent margin of error), and `<code>PMA`. The `A` columns are annotations and are not stored.
 5. Codes read like `DP05_0005`. Vintage 2024 has 154 codes in `DP02`, 137 in `DP03`, 143 in `DP04`, and 108 in `DP05`: 542 codes and 988,608 figures for NY State per vintage.
-6. Values are JSON strings, parsed as decimals. Sentinels stand for unavailable values: `-999999999`, `-888888888`, `-666666666`, `-555555555`, `-333333333`, and `-222222222`, also spelled with decimals (`-666666666.0`, `-222222222.00`), so they are compared numerically. Sentinels, empty strings, and nulls are stored as unknown. Some values are capped, such as a median published as `4001` with the annotation `4,000+`.
+6. Values are JSON strings, parsed as decimals. Sentinels stand for unavailable values: `-999999999`, `-888888888`, `-666666666`, `-555555555`, `-333333333`, and `-222222222`, also spelled with decimals (`-666666666.0`, `-222222222.00`), so they are compared numerically. Sentinels, empty strings, and nulls are stored as unknown. Some values are capped, such as a median published as `4001` with the annotation `4,000+`. A median in the lowest interval is published as its floor minus one, such as `2499` with the annotation `2,500-`. The margin of error of a median in either open-ended interval is `-333333333`, so it is stored as unknown.
 7. Labels come from `https://api.census.gov/data/<vintage>/acs/acs5/profile/groups/<table>.json`: `DP05_0005E` is `Estimate!!SEX AND AGE!!Total population!!Under 5 years`, and `DP05_0005PE` is the same label under `Percent`.
 8. The Census Bureau releases a new 5-year vintage each December and can renumber codes between vintages, so variables and labels are kept per vintage, and vintages are kept side by side.
 
@@ -236,7 +236,7 @@ US Census Bureau American Community Survey 5-year estimates, through the Census 
 
 ## Transit
 
-MTA static GTFS feeds provide subway and bus stop locations for the "nearest bus stop" and "nearest train station" distances in reports.
+MTA static GTFS feeds provide subway and bus stop locations. The MTA publishes the subway, NYCT Brooklyn buses, and MTA Bus Company buses as separate files, and the lines serving a stop come only from the large `stop_times` file. No transit data is ingested, and reports state that transit access is not covered.
 
 ## Mystery-shopping observations
 
@@ -277,6 +277,80 @@ A slot is what one value answers: the price of one age group on one schedule, th
 3. Call notes and the target addresses of clients and prospects are personal data. Notes appear only on the call sheet and on the contact's own admin page, and never name, email, or phone a person. Neither notes nor target addresses ever appear in reports, fixtures, documentation, or logs.
 4. Inspection status is an observation like any other, with its date and method. The NYC Health inspection dataset (`dsg6-ifza`) is frozen, so it is not a source of current status.
 
+## Reports
+
+A report presents a research job's competitors with their public data and research values, and the Census figures of the target location's tabulation area.
+
+### Research values in a report
+
+1. A report's research values are the current values as of its cut-off, the moment it was generated: an observation counts when its contact was entered by then and neither it nor its contact had been retracted by then. The other rules of current values apply unchanged.
+2. Every value carries its contact date and method, whichever job or call sheet recorded it.
+3. Licensed capacity totals sum the published capacities of a competitor's active providers. A total states the regulators' maximum, never enrollment or availability; a competitor whose providers publish only some capacities is marked incomplete.
+
+### Prices and the monthly equivalent
+
+Prices appear as stated: the amount, the period, and the provider's own age group and schedule, with a star when the amount includes discounts. The monthly equivalent is computed when a report is rendered and is never stored:
+
+| Period | Monthly equivalent |
+| --- | --- |
+| Monthly | As stated |
+| Weekly | × 52 ÷ 12 |
+| Daily | × the schedule's days per week × 52 ÷ 12 |
+| Hourly | × the schedule's hours per day × days per week × 52 ÷ 12, only when the schedule states its hours; otherwise "not computable" |
+| Annual | ÷ 12 |
+
+The result is rounded to the nearest whole dollar, halves up.
+
+### Tuition comparison
+
+The comparison sets competitors side by side at the reference ages 12, 24, 36, and 48 months, without assuming one provider's age bands match another's.
+
+1. An age group contains an age when its youngest age is at most the age and its oldest age is blank or at least the age.
+2. Each cell holds the monthly equivalents of every current price of a containing age group on a schedule of 5 days per week: one amount when they agree, otherwise the lowest and the highest. A star marks the cell when any price whose amount it shows includes discounts.
+3. An empty cell says why: "not offered" when no age group contains the age, "no 5-day price" when one does but has no price on a 5-day schedule, and "not computable" when the only such prices are hourly on schedules without stated hours.
+4. A competitor without a current price reads "No verified prices".
+5. The 36-month cell notes "3-K for All seats" and the 48-month cell "Pre-K for All seats" when the competitor's current answer to that question is Yes.
+
+### Census figures
+
+A report shows the figures of the newest ingested vintage that has a figure list, for the target location's tabulation area. Before every report, the list's expected labels are compared with the stored labels of that vintage, whatever the target's area, and a mismatch refuses the report.
+
+The vintage 2024 figure list:
+
+| Heading | Report label | Code | Shown |
+| --- | --- | --- | --- |
+| Children | Total population | `DP05_0001` | Count |
+| Children | Children under 5 years (Census age bracket) | `DP05_0005` | Count, and percent of total population |
+| Children | Children 5 to 9 years (Census age bracket) | `DP05_0006` | Count, and percent of total population |
+| Working parents | Own children of the householder under 6 years | `DP03_0014` | Count |
+| Working parents | With all parents in the family in the labor force | `DP03_0015` | Percent of own children under 6 years |
+| Households and schooling | Total households | `DP02_0001` | Count |
+| Households and schooling | Households with one or more people under 18 years | `DP02_0014` | Percent of households |
+| Households and schooling | Enrolled in nursery school or preschool | `DP02_0054` | Count |
+| Households and schooling | Speak a language other than English at home | `DP02_0114` | Percent of population 5 years and over |
+| Income and poverty | Median household income (2024 dollars) | `DP03_0062` | Dollars |
+| Income and poverty | Median family income (2024 dollars) | `DP03_0086` | Dollars |
+| Income and poverty | Families with children under 5 only: below the poverty level | `DP03_0121` | Percent |
+| Income and poverty | Workers commuting by public transportation | `DP03_0021` | Percent of workers 16 years and over |
+| Housing | Renter-occupied housing units | `DP04_0047` | Percent of occupied housing units |
+| Housing | Median gross rent | `DP04_0134` | Dollars |
+
+1. Base rows (`DP05_0001`, `DP02_0001`, `DP03_0014`) repeat their count in the percent column, without a percent margin, so a report shows only their count.
+2. `DP03_0121` holds only a percent and its margin; the three medians hold only an estimate and its margin.
+3. Each value shows its margin of error at 90% confidence after "±". A value the Census Bureau did not publish reads "Not published"; a value without a usable margin shows none.
+
+### Coded medians
+
+A median in the highest interval is published as the cap plus one, and a median in the lowest interval as the floor minus one. A report prints them as "$<cap> or more" and "$<floor> or less", without a margin.
+
+| Code | Cap | Floor |
+| --- | --- | --- |
+| `DP03_0062` | 250,000 | 2,500 |
+| `DP03_0086` | 250,000 | 2,500 |
+| `DP04_0134` | 3,500 | none |
+
+These are the vintage 2024 values. The caps and the floor of `DP03_0062` appear in the published annotations; `DP03_0086` takes the floor its income family shares. The Census Bureau can renumber codes and change caps between vintages, so a new vintage is used only after its figure list, labels, caps, and floors are checked by hand.
+
 ## Vocabulary
 
 | Term | Meaning |
@@ -292,3 +366,7 @@ A slot is what one value answers: the price of one age group on one schedule, th
 | Schedule | A provider's own attendance pattern, such as "Full time, 5 days per week". |
 | Slot | What one value answers: the price of one age group on one schedule, the availability of one age group, one kind of discount or charge, or one single fact. |
 | Licensed capacity | The maximum number of children a provider may serve, as published by its regulator. |
+| Report | One generated competitor analysis of one research job: its record and its PDF, with a number. |
+| Cut-off | The moment a report was generated; only contacts entered and retractions made by then count in it. |
+| Monthly equivalent | A price converted to an approximate amount per month when a report is rendered, never stored. |
+| Reference age | An age in months at which the tuition comparison compares competitors. |

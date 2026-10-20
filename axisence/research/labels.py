@@ -2,6 +2,7 @@
 
 import dataclasses
 from collections.abc import Sequence
+from datetime import datetime
 
 from django.db.models import Prefetch, Q, prefetch_related_objects
 
@@ -37,12 +38,24 @@ class CompetitorLabels:
     reported_closure: CurrentSlot | None
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class LicensedCapacity:
+    # The sum of the published capacities, or None when none is published.
+    total: int | None
+    # Whether every provider publishes its capacity.
+    is_complete: bool
+
+
 def load_competitor_labels(
-    competitors: Sequence[Competitor], chains: MergeChains
+    competitors: Sequence[Competitor],
+    chains: MergeChains,
+    *,
+    as_of: datetime | None = None,
 ) -> dict[int, CompetitorLabels]:
     """Return the labels of current competitors, in three queries for any number.
 
-    Each competitor also gets its active providers as active_providers.
+    Each competitor also gets its active providers as active_providers. With as_of,
+    the reported closure is the one current at that moment.
     """
     if not competitors:
         return {}
@@ -70,7 +83,9 @@ def load_competitor_labels(
         for competitor_id in {flagged_id, proposed_id}:
             if competitor_id is not None:
                 flag_ids_by_competitor_id.setdefault(competitor_id, []).append(flag_id)
-    operating_statuses = load_current_operating_statuses(competitor_ids, chains)
+    operating_statuses = load_current_operating_statuses(
+        competitor_ids, chains, as_of=as_of
+    )
     return {
         competitor.pk: _labels(
             competitor,
@@ -105,15 +120,23 @@ def _labels(
     )
 
 
-def _licensed_capacity(active_providers: Sequence[Provider]) -> str:
+def licensed_capacity(active_providers: Sequence[Provider]) -> LicensedCapacity:
+    """Return the summed licensed capacity of the active providers."""
     capacities = [provider.total_capacity for provider in active_providers]
     published = [capacity for capacity in capacities if capacity is not None]
-    if not published:
+    return LicensedCapacity(
+        total=sum(published) if published else None,
+        is_complete=len(published) == len(capacities),
+    )
+
+
+def _licensed_capacity(active_providers: Sequence[Provider]) -> str:
+    capacity = licensed_capacity(active_providers)
+    if capacity.total is None:
         return "Unpublished"
-    total = sum(published)
-    if len(published) < len(capacities):
-        return f"{total} (incomplete)"
-    return str(total)
+    if not capacity.is_complete:
+        return f"{capacity.total} (incomplete)"
+    return str(capacity.total)
 
 
 def ages_served(providers: Sequence[Provider]) -> tuple[str, ...]:

@@ -1,0 +1,151 @@
+"""Admin pages for reports, which are listed and downloaded but never added, changed, or
+deleted, and the research job page's report button and list.
+"""
+
+from typing import TYPE_CHECKING, Any
+
+from django.contrib import admin, messages
+from django.core.exceptions import PermissionDenied
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http.response import HttpResponseBase
+from django.urls import URLPattern, path, reverse
+from django.utils.html import format_html
+from django.utils.safestring import SafeString
+
+from axisence.reports import generation, views
+from axisence.reports.errors import ReportError
+from axisence.reports.models import Report
+from axisence.research.admin import ResearchJobAdmin
+from axisence.research.models import ResearchJob
+from axisence.research.views import researcher_from_request
+
+# django-stubs declares ModelAdmin generic, but it has no runtime __class_getitem__,
+# so the parameterized base exists only for the type checker.
+if TYPE_CHECKING:
+    ReportAdminBase = admin.ModelAdmin[Report]
+else:
+    ReportAdminBase = admin.ModelAdmin
+
+_REPORT_FIELD_NAMES = (
+    "job",
+    "kind",
+    "generated_at",
+    "generated_by",
+    "census_vintage",
+    "tabulation_area_code",
+    "ny_state_provider_run",
+    "nyc_health_provider_run",
+    "file_name",
+    "size_bytes",
+    "sha256",
+    "download_link",
+)
+
+
+@admin.register(Report)
+class ReportAdmin(ReportAdminBase):
+    list_display = (
+        "__str__",
+        "job",
+        "kind",
+        "generated_at",
+        "census_vintage",
+        "download_link",
+    )
+    list_filter = ("kind", ("job", admin.RelatedOnlyFieldListFilter))
+    search_fields = ("=job__id",)
+    list_select_related = ("job",)
+    fields = _REPORT_FIELD_NAMES
+    readonly_fields = _REPORT_FIELD_NAMES
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(
+        self, request: HttpRequest, obj: Report | None = None
+    ) -> bool:
+        return False
+
+    def has_delete_permission(
+        self, request: HttpRequest, obj: Report | None = None
+    ) -> bool:
+        return False
+
+    @admin.display(description="File")
+    def download_link(self, report: Report) -> SafeString:
+        return format_html(
+            '<a href="{}">Download</a>',
+            reverse("admin:reports_report_download", args=(report.pk,)),
+        )
+
+    def get_urls(self) -> list[URLPattern]:
+        return [
+            path(
+                "<int:report_id>/download/",
+                self.admin_site.admin_view(self.download_view),
+                name="reports_report_download",
+            ),
+            *super().get_urls(),
+        ]
+
+    def download_view(self, request: HttpRequest, report_id: int) -> HttpResponseBase:
+        return views.download_report(request, report_id)
+
+
+admin.site.unregister(ResearchJob)
+
+
+@admin.register(ResearchJob)
+class ResearchJobWithReportsAdmin(ResearchJobAdmin):
+    """The research job page with the report button and the job's reports.
+
+    Registered in place of the research app's admin, so the research app never
+    imports the reports app.
+    """
+
+    change_form_template = "admin/reports/research_job_change_form.html"
+
+    def render_change_form(
+        self,
+        request: HttpRequest,
+        context: dict[str, Any],
+        add: bool = False,
+        change: bool = False,
+        form_url: str = "",
+        obj: ResearchJob | None = None,
+    ) -> HttpResponse:
+        if obj is not None and obj.pk is not None:
+            context.update(
+                can_generate_report=generation.is_eligible(obj)
+                and request.user.has_perm("reports.generate_report")
+                and self.has_view_permission(request, obj),
+                job_reports=list(
+                    Report.objects.filter(job=obj)
+                    .order_by("-pk")
+                    .only("pk", "kind", "generated_at")
+                ),
+            )
+        return super().render_change_form(request, context, add, change, form_url, obj)
+
+    def response_change(self, request: HttpRequest, obj: ResearchJob) -> HttpResponse:
+        # Runs after the page's own changes are saved, so the report sees them.
+        if "_generate_report" not in request.POST:
+            return super().response_change(request, obj)
+        if not (
+            request.user.has_perm("reports.generate_report")
+            and self.has_view_permission(request, obj)
+        ):
+            raise PermissionDenied
+        try:
+            report = generation.generate_report(
+                job=obj, generated_by=researcher_from_request(request)
+            )
+        except ReportError as error:
+            self.message_user(request, str(error), messages.ERROR)
+        else:
+            self.message_user(
+                request, generation.generated_message(report), messages.SUCCESS
+            )
+        return HttpResponseRedirect(
+            reverse("admin:research_researchjob_change", args=(obj.pk,))
+        )

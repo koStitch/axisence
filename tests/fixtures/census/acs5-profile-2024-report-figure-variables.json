@@ -1,0 +1,124 @@
+{
+  "variables": {
+    "DP02_0001E": {
+      "label": "Estimate!!HOUSEHOLDS BY TYPE!!Total households",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0014E": {
+      "label": "Estimate!!HOUSEHOLDS BY TYPE!!Total households!!Households with one or more people under 18 years",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0054E": {
+      "label": "Estimate!!SCHOOL ENROLLMENT!!Population 3 years and over enrolled in school!!Nursery school, preschool",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP02_0114E": {
+      "label": "Estimate!!LANGUAGE SPOKEN AT HOME!!Population 5 years and over!!Language other than English",
+      "concept": "Selected Social Characteristics in the United States",
+      "predicateType": "int",
+      "group": "DP02",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0014E": {
+      "label": "Estimate!!EMPLOYMENT STATUS!!Own children of the householder under 6 years",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0015E": {
+      "label": "Estimate!!EMPLOYMENT STATUS!!Own children of the householder under 6 years!!All parents in family in labor force",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0021E": {
+      "label": "Estimate!!COMMUTING TO WORK!!Workers 16 years and over!!Public transportation",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0062E": {
+      "label": "Estimate!!INCOME AND BENEFITS (IN 2024 INFLATION-ADJUSTED DOLLARS)!!Total households!!Median household income (dollars)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0086E": {
+      "label": "Estimate!!INCOME AND BENEFITS (IN 2024 INFLATION-ADJUSTED DOLLARS)!!Families!!Median family income (dollars)",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP03_0121E": {
+      "label": "Estimate!!PERCENTAGE OF FAMILIES AND PEOPLE WHOSE INCOME IN THE PAST 12 MONTHS IS BELOW THE POVERTY LEVEL!!All families!!With related children of the householder under 18 years!!With related children of the householder under 5 years only",
+      "concept": "Selected Economic Characteristics",
+      "predicateType": "int",
+      "group": "DP03",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0047E": {
+      "label": "Estimate!!HOUSING TENURE!!Occupied housing units!!Renter-occupied",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "int",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP04_0134E": {
+      "label": "Estimate!!GROSS RENT!!Occupied units paying rent!!Median (dollars)",
+      "concept": "Selected Housing Characteristics",
+      "predicateType": "int",
+      "group": "DP04",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0001E": {
+      "label": "Estimate!!SEX AND AGE!!Total population",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "int",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0005E": {
+      "label": "Estimate!!SEX AND AGE!!Total population!!Under 5 years",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "int",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    },
+    "DP05_0006E": {
+      "label": "Estimate!!SEX AND AGE!!Total population!!5 to 9 years",
+      "concept": "ACS Demographic and Housing Estimates",
+      "predicateType": "int",
+      "group": "DP05",
+      "limit": 0,
+      "predicateOnly": true
+    }
+  }
+}

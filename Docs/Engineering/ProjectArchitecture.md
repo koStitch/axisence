@@ -1,6 +1,6 @@
 # Project Architecture
 
-How Axisence runs: what runs on the Windows host and what runs in containers, the Compose services, the package map, settings, the data pipeline, the research tool, commands, and the test and type-checking setup.
+How Axisence runs: what runs on the Windows host and what runs in containers, the Compose services, the package map, settings, the data pipeline, the research tool, the report generator, commands, and the test and type-checking setup.
 
 ## Host and container
 
@@ -14,8 +14,9 @@ GeoDjango loads the GDAL and GEOS native libraries when Django starts. Installin
 1. Compose bind-mounts the repository root at `/app`, so files the container writes, such as generated migrations, appear in the working tree at once.
 2. The container's environment lives in `/opt/venv`, outside the bind mount, and comes first on `PATH`, so `python`, `pytest`, and `mypy` resolve to it. The host `.venv` serves only the editor and ruff; the two environments never share a directory.
 3. `Dockerfile` builds the image. It installs the dependencies exactly as `uv.lock` pins them. The build fails when `uv.lock` does not match `pyproject.toml`, or when the base image's Python does not match `.python-version`.
-4. The image never contains source code, data, secrets, or the host environment: `.dockerignore` admits only `.python-version`, `pyproject.toml`, and `uv.lock`.
-5. File access across the boundary between Windows and the Linux virtual machine in which Docker Desktop runs containers is slower than native access. At the current size this costs seconds; the approach is revisited only if the test suite becomes measurably slow.
+4. The image also holds what reports need, for the same reason: Pango and HarfBuzz's subsetting library, which WeasyPrint loads to lay out text and embed font subsets; the Inter font, in which reports are set; and poppler-utils, whose `pdftoppm`, `pdffonts`, and `pdfinfo` turn report pages into images and list their fonts and metadata during layout inspection.
+5. The image never contains source code, data, secrets, or the host environment: `.dockerignore` admits only `.python-version`, `pyproject.toml`, and `uv.lock`.
+6. File access across the boundary between Windows and the Linux virtual machine in which Docker Desktop runs containers is slower than native access. At the current size this costs seconds; the approach is revisited only if the test suite becomes measurably slow.
 
 ## Compose services
 
@@ -39,7 +40,8 @@ GeoDjango loads the GDAL and GEOS native libraries when Django starts. Installin
 | `axisence.ingestion` | Pipeline infrastructure shared by every source. Models `IngestionRun` and `IngestionSnapshot`. `http_session.py` builds the HTTP sessions of the pipeline and of the research tool's lookups; `snapshots.py` saves and locates raw snapshots; `socrata.py` fetches a Socrata dataset's metadata and export; `runs.py` starts, completes, fails, and reports runs; `redaction.py` removes secrets from text and log records; `errors.py` holds `IngestionError`. View-only admin pages. |
 | `axisence.providers` | Providers and competitors. Models `Provider`, `Competitor`, `ReviewFlag`, and `CompetitorDecision`. `normalization.py` derives display names and matching keys; `parsing.py`, `ny_state.py`, and `nyc_health.py` parse the exports into records; `storing.py` upserts records and tracks activity; `grouping.py` places providers into competitors and refreshes competitor summaries; `geocoding.py` geocodes providers without coordinates; `review.py` holds the researcher decisions; `pipeline.py` runs one provider ingestion. The commands `ingest_ny_state_providers` and `ingest_nyc_health_providers`. Admin pages where researchers review flags, move providers, and merge competitors. |
 | `axisence.demographics` | Census data. Models `TabulationArea`, `CensusVariable`, and `CensusFigure`. `census_api.py` requests the Census Data API; `parsing.py` parses its responses; `boundaries.py` reads the boundary shapefile; `loading.py` stores figures and boundaries; `pipeline.py` runs both Census ingestions. The commands `ingest_census_demographics` and `ingest_census_boundaries`. View-only admin pages. |
-| `axisence.research` | The research tool. Models `ResearchJob`, `JobCompetitor`, `Contact`, and `Observation`. `geocoding.py` looks target addresses up; `merges.py` resolves merged competitors; `distances.py` measures and formats straight-line distances; `search.py` finds a job's competitors and saves its selection; `labels.py` builds the labels of every listed competitor; `current_values.py` computes the current value of every slot; `job_competitors.py` lists a job's competitors and stores their distances; `jobs.py` holds the job lifecycle; `contacts.py` records and retracts contacts; `forms.py` and `call_sheet.py` hold the forms; `views.py` holds the pages inside the admin; `redaction.py` holds the logging filter for target addresses. Admin pages and their templates. It depends on `providers`, `demographics`, and `ingestion`, and none of them imports it. |
+| `axisence.research` | The research tool. Models `ResearchJob`, `JobCompetitor`, `Contact`, and `Observation`. `geocoding.py` looks target addresses up; `merges.py` resolves merged competitors; `distances.py` measures and formats straight-line distances; `search.py` finds a job's competitors and saves its selection; `labels.py` builds the labels of every listed competitor and sums licensed capacities; `current_values.py` computes the current value of every slot; both also apply a report's cut-off; `job_competitors.py` lists a job's competitors and stores their distances; `jobs.py` holds the job lifecycle; `contacts.py` records and retracts contacts; `forms.py` and `call_sheet.py` hold the forms; `views.py` holds the pages inside the admin; `redaction.py` holds the logging filter for target addresses. Admin pages and their templates. It depends on `providers`, `demographics`, and `ingestion`, and none of them imports it. |
+| `axisence.reports` | The report generator. Model `Report`. `figure_lists.py` holds the Census figures a report shows per vintage; `demographics.py` checks the list and builds the demographics section; `prices.py` computes monthly equivalents and the tuition comparison; `schematic_map.py` draws the map; `competitors.py` loads the competitors and builds their texts and profiles; `content.py` builds everything a report shows; `rendering.py` renders the HTML and the PDF; `storage.py` writes report files; `generation.py` checks the rules, generates, and records a report; `views.py` holds the download; `errors.py` holds the errors. The command `generate_report`. Admin pages and the research job page's report additions. It depends on `research`, `providers`, `demographics`, and `ingestion`, and none of them imports it. |
 | `tests` | The test suite, mirroring the packages above. |
 
 Every Django app is a subpackage of `axisence`, for example `axisence.providers`, and is listed in `INSTALLED_APPS` in `config/settings.py`. `django.contrib.postgres`, which ships with Django, is installed too, for the array of provider kinds a research job searches. The admin at `/admin/` is the only URL.
@@ -68,7 +70,7 @@ Every Django app is a subpackage of `axisence`, for example `axisence.providers`
 | `SOCRATA_APP_TOKEN` | no | empty | Socrata app token sent as `X-App-Token` |
 | `CENSUS_API_KEY` | no | empty | US Census Data API key; the Census commands require it |
 
-Values that are not environment-specific are fixed in code: the PostGIS database engine, `USE_TZ = True`, `TIME_ZONE = "America/New_York"`, and `RAW_DATA_DIRECTORY`, the `data/raw/` directory of the repository.
+Values that are not environment-specific are fixed in code: the PostGIS database engine, `USE_TZ = True`, `TIME_ZONE = "America/New_York"`, `RAW_DATA_DIRECTORY`, the `data/raw/` directory of the repository, and `REPORT_DIRECTORY`, the git-ignored `data/private/reports/` directory that holds generated reports.
 
 ## Data pipeline
 
@@ -123,7 +125,7 @@ Researchers run research jobs and record contacts in pages inside the admin, beh
 
 | Page | URL | Holds |
 | --- | --- | --- |
-| Research job | `/admin/research/researchjob/<id>/change/` | The job; the target point on GeoDjango's OpenStreetMap map widget, with its confirmation and its tabulation area; the job's competitors with their research statuses; the status buttons. |
+| Research job | `/admin/research/researchjob/<id>/change/` | The job; the target point on GeoDjango's OpenStreetMap map widget, with its confirmation and its tabulation area; the job's competitors with their research statuses; the status buttons; the "Generate report" button and the Reports section, which the reports app adds. |
 | Competitor search | `/admin/research/researchjob/<id>/search/` | The candidate competitors with their straight-line distances and labels, the selection, and adding a competitor by name. |
 | Call sheet | `/admin/research/contact/call-sheet/<competitor id>/` | The competitor's published data, labels, current values, and previous contacts, and the entry form of a new contact. |
 | Retraction | `/admin/research/contact/<id>/retract/` | The confirmation and the reason of a retraction, of a whole contact or, with `?observation=<id>`, of one observation. |
@@ -143,6 +145,9 @@ The data migration `research.0002_create_researchers_group` creates the group "R
 | `providers` | View and change providers, competitors, and review flags; view competitor decisions. |
 | `demographics` | View tabulation areas, Census variables, and Census figures. |
 | `research` | Add, view, and change research jobs and job competitors; add and view contacts and observations; `retract_contact`, the permission to retract contacts and observations. |
+| `reports` | View reports; `generate_report`, the permission to generate reports. |
+
+The data migration `reports.0002_grant_report_permissions_to_researchers` adds the `reports` permissions to the group, creating them first in the same way.
 
 A researcher therefore cannot manage accounts or change ingested data other than through the competitor review actions.
 
@@ -164,6 +169,47 @@ Research rows keep the competitor they were recorded for and are never rewritten
 2. urllib3 logs request URLs, and the single-address geocoder's URL holds the target address in its `address` query parameter. `axisence.research.redaction.RedactTargetAddressesFilter`, on the console handler next to the secrets filter, redacts that parameter from every record. A failed lookup logs only the class name of its error, because a requests error message holds the URL.
 3. In debug mode Django's SQL logger, `django.db.backends`, writes every statement with its parameters at `DEBUG`, and those parameters hold target addresses and call notes. The logger is pinned to `INFO` in `LOGGING`, so `DJANGO_LOG_LEVEL=DEBUG` never prints SQL.
 
+## Reports
+
+`axisence.reports` turns a client report job into its competitor analysis as a PDF. `Docs/Domain/DataSources.md` describes what a report shows and the rules behind it.
+
+### Generation
+
+`generation.generate_report` runs inside the request of the job page or inside the `generate_report` command; there is no queue or worker.
+
+1. It refuses, with a `ReportRefusedError` whose message is shown to the user, a job whose purpose is not Client report, a Draft or Cancelled job, a job that lists no competitors, and a Census figure list that no longer matches the stored labels. Researching gives a draft and Complete a final report; the kind is stored and never changes, and reports of a reopened job stay.
+2. The generation time is the report's cut-off. Research values are the current values as of the cut-off; competitors, merges, providers, operating statuses, and Census figures are read as they are.
+3. `content.build_report` builds everything the report shows as frozen dataclasses of display-ready text, in a fixed number of queries. The templates receive only these and the report's number, never a model instance, so no personal field can reach a template.
+4. The number is reserved from the primary-key sequence before rendering, because every page prints it. A failure after the reservation leaves its number unused, so numbers always increase but can skip.
+5. The PDF is written as `report-<number>.pdf` under `REPORT_DIRECTORY`, through a `.part` file renamed when complete. An existing file is never overwritten.
+6. The `Report` row records the number, the job, the kind, the generation time, the generating user (none for the command), the Census vintage, the tabulation-area code, the latest succeeded run of each provider source finished by the cut-off, and the file's name, size, and SHA-256.
+7. Everything after the checks runs in a savepoint of its own, so a failure never rolls back the job page's own changes saved in the same request. Any failure removes the file, logs only the error's class name and the job number, and raises `ReportGenerationError` with "The report could not be generated."
+
+### Rendering
+
+1. Django templates under `axisence/reports/templates/reports/` render the HTML with print CSS, the stylesheet inlined into it. WeasyPrint renders the PDF: US Letter, set in Inter, which fontconfig finds in the image.
+2. WeasyPrint's URL fetcher refuses every URL of every scheme, `file:` and `data:` included, and stops rendering instead of leaving a resource out, so rendering loads nothing from outside the report's own HTML.
+3. The schematic map is inline SVG drawn from the database alone: tabulation-area outlines, the search radius, the target, and numbered competitors, computed with GEOS in EPSG:2263 so the circle stays round and the scale bar true. The SVG holds only coordinates relative to the map, never geographic ones.
+4. The PDF's title is "Axisence competitor analysis, report <number>", its language `en-US`, and it has no author, subject, or keywords.
+
+### Pages and permissions
+
+| Page | URL | Holds |
+| --- | --- | --- |
+| Research job | `/admin/research/researchjob/<id>/change/` | "Generate report" beside the status buttons, and the Reports section listing the job's reports newest first. |
+| Reports | `/admin/reports/report/` | Every report with its job, kind, generation time, vintage, and download link, filtered by kind or job and searched by job number. |
+| Download | `/admin/reports/report/<id>/download/` | The stored PDF as an attachment; a missing file returns to the previous page with "The file of report #N is no longer stored." |
+
+1. `admin.py` unregisters the research app's `ResearchJobAdmin` and registers its subclass `ResearchJobWithReportsAdmin` in place, with a template that fills the research template's empty `job_action_buttons` block, so the research app never imports the reports app. The button posts the page, so the job's own changes, such as research statuses, are saved before the report is generated.
+2. The button shows for an eligible job to a user who can change the job and holds `reports.generate_report`. Every post checks that permission and the job's view permission again, and the service checks every rule again.
+3. `Report` has only two permissions: view, and `generate_report`. Downloading needs the view permission.
+4. Reports are never changed or deleted: the admin refuses adding, changing, and deleting them for every user; `Report.save` accepts only the first insert; `Report.delete` and the queryset's `update` and `delete` raise `PermanentRecordError`; and every foreign key from a report is `PROTECT`.
+
+### Logging
+
+1. A generated report logs "Research job <id> report <number> generated (<kind>)"; a failure logs the job number and only the class name of the error.
+2. WeasyPrint's and fontTools' loggers write to a discarding handler in `LOGGING`, because their records can quote the HTML, CSS, or text of a report.
+
 ## Commands
 
 Each command has exactly one form, used the same way in `CLAUDE.md`, `.claude/settings.json`, the migration hook, and the README.
@@ -181,6 +227,7 @@ Each command has exactly one form, used the same way in `CLAUDE.md`, `.claude/se
 | Load NYC Health providers | `docker compose run --rm web python manage.py ingest_nyc_health_providers` | container |
 | Load Census demographics | `docker compose run --rm web python manage.py ingest_census_demographics --vintage 2024` | container |
 | Load tabulation-area boundaries | `docker compose run --rm web python manage.py ingest_census_boundaries` | container |
+| Generate a report | `docker compose run --rm web python manage.py generate_report <job id>` | container |
 | Tests | `docker compose run --rm web pytest` | container |
 | Type check | `docker compose run --rm web mypy .` | container |
 | Lint | `uv run ruff check` | host |
@@ -193,10 +240,17 @@ Each command has exactly one form, used the same way in `CLAUDE.md`, `.claude/se
 
 1. pytest with pytest-django is configured in `pyproject.toml`, with `DJANGO_SETTINGS_MODULE = "config.settings"` and tests under `tests/`. The suite runs only in the `web` container, against the Compose PostGIS server, where Django creates and destroys its test database. Tests never use SQLite and never touch the network.
 2. Tests that need the database are marked `@pytest.mark.django_db`. A test that needs a model no production app defines declares a throwaway model in an isolated app registry (`django.test.utils.isolate_apps`) and creates its table with the schema editor inside the test's transaction, as `tests/test_postgis.py` does.
-3. mypy runs in strict mode with the django-stubs plugin, configured in `pyproject.toml`. The plugin imports the settings and models, and with them GDAL, so mypy runs only in the container. Test code may leave function definitions unannotated; their bodies are still checked. Migrations and `scratch/` are excluded.
+3. mypy runs in strict mode with the django-stubs plugin, configured in `pyproject.toml`. The plugin imports the settings and models, and with them GDAL, so mypy runs only in the container. Test code may leave function definitions unannotated; their bodies are still checked. Migrations and `scratch/` are excluded. WeasyPrint ships no type information, so an override ignores its missing imports and its names are untyped; no WeasyPrint class is subclassed, which strict mode would refuse.
 4. `tests/fixtures/` holds the recorded inputs: provider export rows cut from real snapshots, with every phone number, licensee name, and home name, address, and coordinate replaced by synthetic values; trimmed Census Data API responses; a recorded batch geocoder response; and a recorded single-address geocoder response for Brooklyn Borough Hall, a public building. They hold public or synthetic data only.
-5. Autouse fixtures in `tests/conftest.py` keep every test off the network and off the real data: `http_session.build_session` and `http_session.build_lookup_session` are wrapped to mount a fake transport, `tests/ingestion/fake_transport.py`, which answers only the routes a test registers and records each request and its timeout; `RAW_DATA_DIRECTORY` points at a temporary directory; and both secrets are blank unless a test sets synthetic values.
+5. Autouse fixtures in `tests/conftest.py` keep every test off the network and off the real data: `http_session.build_session` and `http_session.build_lookup_session` are wrapped to mount a fake transport, `tests/ingestion/fake_transport.py`, which answers only the routes a test registers and records each request and its timeout; `RAW_DATA_DIRECTORY` and `REPORT_DIRECTORY` point at temporary directories; and both secrets are blank unless a test sets synthetic values. Every WeasyPrint call in tests uses the refusing URL fetcher, so rendering never reaches the network.
 6. `tests/demographics/shapefiles.py` writes a minimal polygon shapefile with a NAD83 projection into a zip, so the boundary tests run GDAL on synthetic areas instead of the 67 MB national file.
 7. `tests/admin_forms.py` builds the data an admin change page posts, its main form and inline formsets included, and `tests/research/call_sheet_posts.py` does the same for the call sheet.
 8. django-stubs declares `ModelAdmin`, `TabularInline`, and `ModelForm` generic, but those classes cannot be subscripted at runtime. Each `admin.py` therefore defines its parameterized base classes under `if TYPE_CHECKING:` and the plain classes otherwise, which keeps strict typing without a runtime dependency or `type: ignore` comments.
-9. ruff runs on the host and is configured in `pyproject.toml`. Its rule set enforces the `CLAUDE.md` rules that have a linter equivalent, among them timezone-aware datetimes, no `print`, annotated signatures outside tests, no SQL built by string formatting, explicit HTTP timeouts, and no hard-coded secrets. Migrations are excluded from linting and formatting.
+9. Layout inspection renders reports to check how they look. `tests/reports/test_layout_inspection.py` is marked `layout_inspection`, which `addopts` deselects, so the normal run skips it. It generates four reports on synthetic data in the test database and copies their PDFs into `scratch/report-inspection/`, where they remain:
+
+    ```powershell
+    docker compose run --rm web pytest -m layout_inspection tests/reports/test_layout_inspection.py
+    ```
+
+    `docker compose run --rm web pdftoppm -png -r 110 scratch/report-inspection/<name>.pdf scratch/report-inspection/<name>` turns each page into an image, `pdffonts` lists the embedded fonts, and `pdfinfo` the metadata and page size. No local data is used.
+10. ruff runs on the host and is configured in `pyproject.toml`. Its rule set enforces the `CLAUDE.md` rules that have a linter equivalent, among them timezone-aware datetimes, no `print`, annotated signatures outside tests, no SQL built by string formatting, explicit HTTP timeouts, and no hard-coded secrets. Migrations are excluded from linting and formatting.

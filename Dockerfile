@@ -1,12 +1,14 @@
 # Image for the Compose web service: Python, the GDAL, GEOS, and PROJ libraries that
-# GeoDjango loads, and the project environment exactly as uv.lock pins it. It never
+# GeoDjango loads, the Pango and HarfBuzz libraries and the Inter font that WeasyPrint
+# renders reports with, poppler-utils for turning report pages into images during
+# layout inspection, and the project environment exactly as uv.lock pins it. It never
 # contains source code: compose.yaml bind-mounts the repository at /app.
 FROM python:3.14-slim-trixie
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /bin/uv
 
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends libgdal36 libgeos-c1t64 libproj25 \
+    && apt-get install --yes --no-install-recommends libgdal36 libgeos-c1t64 libproj25 libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-inter poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # The environment lives in /opt/venv, outside the bind mount, and its bin directory comes

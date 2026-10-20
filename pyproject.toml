@@ -7,6 +7,7 @@ dependencies = [
     "django>=6.1.2,<6.2",
     "psycopg[binary]>=3.3.6",
     "requests>=2.34.2",
+    "weasyprint>=70.0",
 ]
 
 [tool.ruff]
@@ -40,7 +41,10 @@ select = [
 [tool.pytest]
 DJANGO_SETTINGS_MODULE = "config.settings"
 testpaths = ["tests"]
-addopts = ["--strict-config", "--strict-markers"]
+addopts = ["--strict-config", "--strict-markers", "-m", "not layout_inspection"]
+markers = [
+    "layout_inspection: renders the layout inspection reports into scratch/report-inspection/; run only with -m layout_inspection",
+]
 
 [tool.mypy]
 strict = true
@@ -53,6 +57,10 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 disallow_untyped_calls = false
 check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["weasyprint", "weasyprint.*"]
+ignore_missing_imports = true
 
 [tool.django-stubs]
 django_settings_module = "config.settings"

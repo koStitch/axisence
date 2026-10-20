@@ -1,0 +1,33 @@
+{% with map=report.report_map %}
+<svg class="map" viewBox="0 0 {{ map.width }} {{ map.height }}" role="img" aria-label="Schematic map of the competitors around the target location">
+<style>
+text { font-family: Inter, sans-serif; }
+.area { fill: none; stroke: #9aa3ad; stroke-width: 1.2; }
+.area-code { fill: #6b7580; font-size: 13px; text-anchor: middle; }
+.radius { fill: none; stroke: #1f3a5f; stroke-width: 2; stroke-dasharray: 8 6; }
+.marker { fill: #1f3a5f; }
+.marker-number { fill: #ffffff; font-size: 12px; font-weight: 600; text-anchor: middle; }
+.target { fill: #ffffff; stroke: #1f3a5f; stroke-width: 3; }
+.scale { stroke: #1a1a1a; stroke-width: 3; }
+.scale-label { fill: #1a1a1a; font-size: 13px; }
+</style>
+{% for area in map.areas %}
+<path class="area" d="{{ area.path }}" fill-rule="evenodd"/>
+<text class="area-code" x="{{ area.label_x }}" y="{{ area.label_y }}">{{ area.code }}</text>
+{% endfor %}
+<circle class="radius" cx="{{ map.radius.x }}" cy="{{ map.radius.y }}" r="{{ map.radius.radius }}"/>
+{% for marker in map.markers %}
+<g transform="translate({{ marker.x }}, {{ marker.y }})">
+<circle class="marker" cx="0" cy="0" r="11"/>
+<text class="marker-number" x="0" y="4">{{ marker.number }}</text>
+</g>
+{% endfor %}
+<g transform="translate({{ map.target.x }}, {{ map.target.y }})">
+<rect class="target" x="-11" y="-11" width="22" height="22" transform="rotate(45)"/>
+</g>
+<g transform="translate({{ map.scale_bar.x }}, {{ map.scale_bar.y }})">
+<line class="scale" x1="0" y1="0" x2="{{ map.scale_bar.length }}" y2="0"/>
+<text class="scale-label" x="0" y="-8">{{ map.scale_bar.label }}</text>
+</g>
+</svg>
+{% endwith %}

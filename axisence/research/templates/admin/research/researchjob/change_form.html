@@ -25,6 +25,7 @@
       {% for status, label in available_transitions %}
         <button type="submit" class="button" name="_transition" value="{{ status }}">{{ label }}</button>
       {% endfor %}
+      {% block job_action_buttons %}{% endblock %}
     </div>
   {% endif %}
 {% endblock %}

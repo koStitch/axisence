@@ -4,7 +4,7 @@ Competitor analysis for independent childcare providers. This repository holds t
 
 ## How it runs
 
-Django, its tests, every `manage.py` command, and mypy run only inside the `web` service of Docker Compose. Its Debian image provides the GDAL, GEOS, and PROJ libraries that GeoDjango loads, so none of them is installed on Windows. The Windows host runs only `uv`, for the editor's environment and the dependencies, and ruff.
+Django, its tests, every `manage.py` command, and mypy run only inside the `web` service of Docker Compose. Its Debian image provides the GDAL, GEOS, and PROJ libraries that GeoDjango loads, and the libraries and the font that WeasyPrint needs to render reports, so none of them is installed on Windows. The Windows host runs only `uv`, for the editor's environment and the dependencies, and ruff.
 
 The `db` service runs PostgreSQL with PostGIS. Both services publish their ports on 127.0.0.1 only.
 
@@ -78,6 +78,7 @@ Version numbers live only in the project files: `.python-version`, `pyproject.to
 | Load NYC Health providers | `docker compose run --rm web python manage.py ingest_nyc_health_providers` | container |
 | Load Census demographics | `docker compose run --rm web python manage.py ingest_census_demographics --vintage 2024` | container |
 | Load tabulation-area boundaries | `docker compose run --rm web python manage.py ingest_census_boundaries` | container |
+| Generate a report | `docker compose run --rm web python manage.py generate_report <job id>` | container |
 | Tests | `docker compose run --rm web pytest` | container |
 | Type check | `docker compose run --rm web mypy .` | container |
 | Lint | `uv run ruff check` | host |
@@ -267,7 +268,7 @@ Each researcher has an account of their own.
 4. Tick "Staff status".
 5. Under Groups, move "Researchers" to "Chosen groups", then choose "Save".
 
-Expected: the researcher logs in with that account and sees Research jobs, Job competitors, Contacts, and Observations under Research; the provider, competitor, and review flag pages with their review actions; and the demographics pages read-only.
+Expected: the researcher logs in with that account and sees Research jobs, Job competitors, Contacts, and Observations under Research; the provider, competitor, and review flag pages with their review actions; the demographics pages read-only; and Reports under Reports, with "Generate report" on the pages of eligible research jobs.
 
 ### Running a research job
 
@@ -306,6 +307,60 @@ Expected: the researcher logs in with that account and sees Research jobs, Job c
 ### History
 
 The call sheet's "Full history" link lists every observation of the competitor and of the competitors merged into it, newest contact first.
+
+## Reports
+
+A report is a client's competitor analysis as a PDF, generated from a research job whose purpose is "Client report". A Researching job gives a draft, marked "Draft" on every page; a Complete job gives the final report. Each report shows the research values as they stood when it was generated, and is kept with its number; nothing in it can be changed or deleted.
+
+### Generating a draft
+
+1. Under Research, open Research jobs and then the Researching client report job.
+2. Choose "Generate report" beside the status buttons. Changes made on the page, such as research statuses, are saved first. Expected: "Draft report #N generated.", and the report appears in the job's Reports section, newest first. Every page of the PDF reads "Draft".
+
+### Generating the final report
+
+1. When no competitor is To do or In progress, choose "Mark complete". Expected: the job is Complete.
+2. Choose "Generate report", or run the command of "From the command line" below. Expected: "Report #N generated." on the page, or the command's line.
+
+### Downloading
+
+1. Choose "Download" beside a report in the job's Reports section. Alternatively, under Reports, open Reports, filter by kind or job or search by the job's number, and choose "Download" beside the report.
+2. Expected: the browser saves `report-<N>.pdf`.
+
+### Report files
+
+1. Reports are stored as `data/private/reports/report-<N>.pdf`, which git ignores. They are confidential client documents: the application never deletes or overwrites them, and nothing backs them up. Back the folder up and prune it by hand.
+2. Downloading a report whose file was pruned shows "The file of report #N is no longer stored." and returns to the previous page.
+3. After the local database is reset, report numbers start again at 1. Move the old files out of `data/private/reports/` first: a generation whose file name already exists fails with "The report could not be generated."
+
+### From the command line
+
+The command generates a draft or the final report by the job's status, without recording a user:
+
+```powershell
+docker compose run --rm web python manage.py generate_report <job id>
+```
+
+```text
+Report #<N> generated: report-<N>.pdf
+```
+
+A refusal or a failure ends with `CommandError: <message>` and a non-zero exit status.
+
+### When a report is refused
+
+| Message | Meaning and what to do |
+| --- | --- |
+| Only client report jobs produce a report. | The job's purpose is Prospect. Change the purpose to Client report when the job is for a client. |
+| A Draft job cannot produce a report. | Research has not started. Confirm the target point, select competitors, and choose "Start research". |
+| A Cancelled job cannot produce a report. | Choose "Reopen research" when the job is wanted again. |
+| This job lists no competitors. | Choose "Search competitors" and save a selection. |
+| The Census figure list for vintage `<year>` does not match the stored labels. | The Census Bureau's labels of that vintage differ from the figures a report shows. A developer checks the codes and labels and updates `axisence/reports/figure_lists.py`; every report is refused until then. |
+| The report could not be generated. | An unexpected failure. The log names the error's class and the job's number; no report or file is kept. |
+
+### Generating again
+
+A report can be generated again at any time, for example after a late call. Each generation gets a new number and keeps the earlier reports. Numbers always increase but can skip after a failed generation.
 
 ## Documentation
 

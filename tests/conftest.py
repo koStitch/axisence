@@ -1,4 +1,6 @@
-"""Fixtures every test gets: no network, no real secrets, no writes into data/raw/."""
+"""Fixtures every test gets: no network, no real secrets, no writes into data/raw/ or
+data/private/reports/.
+"""
 
 import pytest
 
@@ -10,6 +12,12 @@ from tests.ingestion.fake_transport import FakeTransport
 def raw_data_directory(settings, tmp_path):
     settings.RAW_DATA_DIRECTORY = tmp_path / "raw"
     return settings.RAW_DATA_DIRECTORY
+
+
+@pytest.fixture(autouse=True)
+def report_directory(settings, tmp_path):
+    settings.REPORT_DIRECTORY = tmp_path / "reports"
+    return settings.REPORT_DIRECTORY
 
 
 @pytest.fixture(autouse=True)

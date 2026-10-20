@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8">
+<title>Axisence competitor analysis, report {{ number }}</title>
+<style>{% include "reports/report.css" %}</style>
+</head>
+<body>
+<div class="confidentiality">Confidential: prepared for {{ report.organization_name }}</div>
+{% include "reports/sections/cover.html" %}
+{% include "reports/sections/summary.html" %}
+{% include "reports/sections/map_and_overview.html" %}
+{% include "reports/sections/tuition_comparison.html" %}
+{% include "reports/sections/competitor_profiles.html" %}
+{% include "reports/sections/demographics.html" %}
+{% if report.reported_closed %}
+{% include "reports/sections/reported_closed.html" %}
+{% endif %}
+{% include "reports/sections/sources_and_method.html" %}
+</body>
+</html>

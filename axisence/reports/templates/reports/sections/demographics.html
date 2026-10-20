@@ -1,0 +1,22 @@
+<section>
+  <h2>Local demographics</h2>
+  {% with demographics=report.demographics %}
+    {% if demographics.message %}
+      <p>{{ demographics.message }}</p>
+    {% else %}
+      <h3>{{ demographics.heading }}</h3>
+      <p class="note">{{ demographics.caveat }}</p>
+      {% for group in demographics.groups %}
+        <table class="figures">
+          <thead><tr><th>{{ group.heading }}</th><th>Estimate</th><th>Percent</th></tr></thead>
+          <tbody>
+            {% for row in group.rows %}
+              <tr><td>{{ row.label }}</td><td>{{ row.estimate }}</td><td>{{ row.percent }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endfor %}
+      {% if demographics.groups %}<p class="note">± is the margin of error at 90% confidence.</p>{% endif %}
+    {% endif %}
+  {% endwith %}
+</section>

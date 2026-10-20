@@ -1,0 +1,39 @@
+<section>
+  <h2>Tuition comparison: about per month on 5-day schedules</h2>
+  {% if report.comparison_rows %}
+    <table class="comparison">
+      <thead>
+        <tr>
+          <th class="number-column">No.</th>
+          <th>Competitor</th>
+          <th class="distance-column">Distance (straight line)</th>
+          <th class="age-column">12 months</th>
+          <th class="age-column">24 months</th>
+          <th class="age-column">36 months</th>
+          <th class="age-column">48 months</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in report.comparison_rows %}
+          <tr>
+            <td>{{ row.number }}</td>
+            <td>{{ row.name }}</td>
+            <td>{{ row.distance }}</td>
+            {% for cell in row.cells %}
+              <td>{{ cell.text }}{% if cell.note %}<span class="cell-note">{{ cell.note }}</span>{% endif %}</td>
+            {% empty %}
+              <td colspan="4">{{ row.no_price_text }}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="note">Each cell gives the monthly equivalents of the provider's current prices for its own age groups that contain the age, on schedules of 5 days per week. One amount means they agree; a range gives the lowest and the highest.</p>
+    <p class="note">Monthly equivalents are approximate: weekly × 52 ÷ 12, daily × days per week × 52 ÷ 12, hourly × hours per day × days per week × 52 ÷ 12, annual ÷ 12, rounded to the nearest dollar.</p>
+    <p class="note">* The price includes discounts.</p>
+    <p class="note">not offered: no age group of the provider contains the age. no 5-day price: an age group contains the age but has no price on a 5-day schedule. not computable: the only such prices are hourly, on schedules without stated hours.</p>
+    <p class="note">Every price's date and method appear in the competitor's profile.</p>
+  {% else %}
+    <p>Every listed competitor is reported permanently closed.</p>
+  {% endif %}
+</section>

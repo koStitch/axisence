@@ -1,0 +1,74 @@
+<section>
+  {% for competitor in report.competitors %}
+    <div class="profile">
+      {# Inside the first profile, so a profile taller than a page starts under the heading instead of leaving it alone on a page. #}
+      {% if forloop.first %}<h2>Competitor profiles</h2>{% endif %}
+      <h3>{{ competitor.number }}. {{ competitor.name }}</h3>
+      {% if competitor.state_labels %}
+        <div class="profile-labels">{% for label in competitor.state_labels %}<span class="state-label">{{ label }}</span>{% endfor %}</div>
+      {% endif %}
+      <p>Address: {{ competitor.address }}{% if competitor.borough %}, {{ competitor.borough }}{% endif %}</p>
+      <p>Distance (straight line): {{ competitor.distance }}</p>
+      <p>Kind: {{ competitor.kinds }}</p>
+      <h4>Public data</h4>
+      <p>Licensed capacity: {{ competitor.licensed_capacity }}</p>
+      <p>Ages served: {{ competitor.ages_served }}</p>
+      {% for status in competitor.facility_statuses %}<p>Facility status: {{ status }}</p>{% endfor %}
+      {% if competitor.is_school_based %}<p>School-based program: its capacity is often unpublished.</p>{% endif %}
+      <h4>Verified data</h4>
+      {% with verified=competitor.verified %}
+        {% if verified %}
+          {% if verified.age_groups %}
+            <h5>Age groups</h5>
+            <ul>{% for line in verified.age_groups %}<li>{{ line.text }}<span class="recorded">{{ line.recorded }}</span></li>{% endfor %}</ul>
+          {% endif %}
+          {% if verified.schedules %}
+            <h5>Schedules</h5>
+            <ul>{% for line in verified.schedules %}<li>{{ line.text }}<span class="recorded">{{ line.recorded }}</span></li>{% endfor %}</ul>
+          {% endif %}
+          {% if verified.price_groups %}
+            <h5>Prices</h5>
+            {% for group in verified.price_groups %}
+              <table class="prices">
+                <caption>{{ group.heading }}</caption>
+                <thead><tr><th>Schedule</th><th>Stated price</th><th>About per month</th><th>Recorded</th></tr></thead>
+                <tbody>
+                  {% for row in group.rows %}
+                    <tr><td>{{ row.schedule }}</td><td>{{ row.stated_price }}</td><td>{{ row.monthly_equivalent }}</td><td>{{ row.recorded }}</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% endfor %}
+          {% endif %}
+          {% if verified.availability %}
+            <h5>Availability</h5>
+            <ul>{% for line in verified.availability %}<li>{{ line.text }}<span class="recorded">{{ line.recorded }}</span></li>{% endfor %}</ul>
+          {% endif %}
+          {% if verified.discounts %}
+            <h5>Discounts</h5>
+            <ul>{% for line in verified.discounts %}<li>{{ line.text }}<span class="recorded">{{ line.recorded }}</span></li>{% endfor %}</ul>
+          {% endif %}
+          {% if verified.other_charges %}
+            <h5>Other charges</h5>
+            <ul>{% for line in verified.other_charges %}<li>{{ line.text }}<span class="recorded">{{ line.recorded }}</span></li>{% endfor %}</ul>
+          {% endif %}
+          {% if verified.facts %}
+            <h5>Other facts</h5>
+            <table class="facts">
+              <tbody>
+                {% for fact in verified.facts %}
+                  <tr><th scope="row">{{ fact.label }}</th><td>{{ fact.value }}</td><td>{{ fact.recorded }}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% endif %}
+        {% else %}
+          <p>No verified information</p>
+        {% endif %}
+      {% endwith %}
+    </div>
+  {% empty %}
+    <h2>Competitor profiles</h2>
+    <p>Every listed competitor is reported permanently closed.</p>
+  {% endfor %}
+</section>

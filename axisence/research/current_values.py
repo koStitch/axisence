@@ -64,20 +64,20 @@ def slot_of(observation: Observation) -> Slot | None:
     return None
 
 
-def compute_current_values(observations: Iterable[Observation]) -> CurrentValues:
+def compute_current_values(
+    observations: Iterable[Observation], *, as_of: datetime | None = None
+) -> CurrentValues:
     """Apply the current-value rules; each observation's contact must be loaded.
 
-    1. An observation counts while neither it nor its contact is retracted.
+    1. An observation counts while neither it nor its contact is retracted. As of a
+       moment, it counts when its contact was entered by then and neither it nor its
+       contact had been retracted by then.
     2. A definition is current until a counting retirement points at it.
     3. A value counts while every definition it refers to is current.
     4. In each slot, the newest contact among the counting values wins, by contact
        date, then entry time, then contact number, with all its values of the slot.
     """
-    valid = [
-        observation
-        for observation in observations
-        if observation.retracted_at is None and observation.contact.retracted_at is None
-    ]
+    valid = [observation for observation in observations if _counts(observation, as_of)]
     retired_definition_ids = {
         observation.age_group_id
         for observation in valid
@@ -156,7 +156,10 @@ def load_current_values(competitor_id: int, chains: MergeChains) -> CurrentValue
 
 
 def load_current_operating_statuses(
-    current_competitor_ids: Collection[int], chains: MergeChains
+    current_competitor_ids: Collection[int],
+    chains: MergeChains,
+    *,
+    as_of: datetime | None = None,
 ) -> dict[int, CurrentSlot]:
     """Return the current operating status of each competitor that has one."""
     if not current_competitor_ids:
@@ -175,12 +178,23 @@ def load_current_operating_statuses(
     statuses = {}
     operating_status_slot = Slot(ObservationKind.OPERATING_STATUS)
     for current_id, observations in observations_by_current_id.items():
-        current_slot = compute_current_values(observations).slots.get(
+        current_slot = compute_current_values(observations, as_of=as_of).slots.get(
             operating_status_slot
         )
         if current_slot is not None:
             statuses[current_id] = current_slot
     return statuses
+
+
+def _counts(observation: Observation, as_of: datetime | None) -> bool:
+    contact = observation.contact
+    if as_of is None:
+        return observation.retracted_at is None and contact.retracted_at is None
+    return (
+        contact.entered_at <= as_of
+        and (observation.retracted_at is None or observation.retracted_at > as_of)
+        and (contact.retracted_at is None or contact.retracted_at > as_of)
+    )
 
 
 def _contact_recency(contact: Contact) -> tuple[date, datetime, int]:

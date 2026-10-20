@@ -1,0 +1,33 @@
+{% extends "admin/research/researchjob/change_form.html" %}
+
+{% block job_action_buttons %}
+  {% if can_generate_report %}
+    <button type="submit" class="button" name="_generate_report" value="1">Generate report</button>
+  {% endif %}
+{% endblock %}
+
+{% block after_related_objects %}
+  {{ block.super }}
+  {% if change %}
+    <fieldset class="module">
+      <h2>Reports</h2>
+      {% if job_reports %}
+        <table>
+          <thead><tr><th>Report</th><th>Kind</th><th>Generated</th><th>File</th></tr></thead>
+          <tbody>
+            {% for report in job_reports %}
+              <tr>
+                <td>Report #{{ report.pk }}</td>
+                <td>{{ report.get_kind_display }}</td>
+                <td>{{ report.generated_at|date:"Y-m-d H:i" }}</td>
+                <td>{% if perms.reports.view_report %}<a href="{% url 'admin:reports_report_download' report.pk %}">Download</a>{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>No reports yet.</p>
+      {% endif %}
+    </fieldset>
+  {% endif %}
+{% endblock %}

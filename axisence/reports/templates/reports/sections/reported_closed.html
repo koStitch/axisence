@@ -1,0 +1,11 @@
+<section>
+  <h2>Reported closed</h2>
+  <table class="closed">
+    <thead><tr><th>Competitor</th><th class="address-column">Address</th><th class="distance-column">Distance (straight line)</th><th class="closure-column">Report</th></tr></thead>
+    <tbody>
+      {% for competitor in report.reported_closed %}
+        <tr><td>{{ competitor.name }}</td><td>{{ competitor.address }}</td><td>{{ competitor.distance }}</td><td>{{ competitor.closure }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
