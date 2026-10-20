@@ -39,11 +39,25 @@ class SocrataDataset:
         """The dataset metadata, holding rowsUpdatedAt."""
         return f"https://{self.domain}/api/views/{self.identifier}.json"
 
+    @property
+    def metadata_name(self) -> str:
+        return f"{self.file_stem}-metadata.json"
+
+    @property
+    def export_name(self) -> str:
+        return f"{self.file_stem}-export.csv"
+
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class FetchedDataset:
     metadata: SavedSnapshot
     export: SavedSnapshot
+    rows_updated_at: datetime | None
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class SavedMetadata:
+    snapshot: SavedSnapshot
     rows_updated_at: datetime | None
 
 
@@ -62,7 +76,7 @@ def fetch_dataset(
             dataset.metadata_url,
             headers,
             dataset.raw_directory_name,
-            f"{dataset.file_stem}-metadata.json",
+            dataset.metadata_name,
             fetched_at,
             run_id,
         )
@@ -71,7 +85,7 @@ def fetch_dataset(
             dataset.export_url,
             headers,
             dataset.raw_directory_name,
-            f"{dataset.file_stem}-export.csv",
+            dataset.export_name,
             fetched_at,
             run_id,
         )
@@ -85,6 +99,28 @@ def fetch_dataset(
         rows_updated_at=_read_rows_updated_at(
             metadata.absolute_path, dataset.identifier
         ),
+    )
+
+
+def read_saved_metadata(
+    dataset: SocrataDataset, export_path: Path
+) -> SavedMetadata | None:
+    """Return the metadata saved with an export snapshot, and its publisher time.
+
+    A fetch saves both files under one time and run, so the metadata's name is the
+    export's with the other suffix. None when the export was not named by a fetch or
+    its metadata is not stored.
+    """
+    if not export_path.name.endswith(dataset.export_name):
+        return None
+    metadata_path = export_path.with_name(
+        export_path.name.removesuffix(dataset.export_name) + dataset.metadata_name
+    )
+    if not metadata_path.is_file():
+        return None
+    return SavedMetadata(
+        snapshot=snapshots.describe_existing(metadata_path),
+        rows_updated_at=_read_rows_updated_at(metadata_path, dataset.identifier),
     )
 
 

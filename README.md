@@ -237,6 +237,8 @@ docker compose run --rm web python manage.py ingest_nyc_health_providers --snaps
 
 Re-running a provider command on the export it just fetched reports `Created: 0`, `Updated: 0`, and `Marked missing: 0`, followed by `Re-ingested an existing snapshot.`
 
+A re-ingestion also re-reads the metadata saved with that export, so its `Publisher last updated:` line, and every report generated after it, give the date of the data actually loaded, however old the saved download is.
+
 ### When a run fails
 
 1. The command ends with `CommandError: <source> run <run> failed: <reason>` and a non-zero exit status, and the run appears as failed in the admin.

@@ -145,6 +145,17 @@ def _take_export(
         path = snapshots.resolve_reingestion_path(
             snapshot_argument, definition.dataset.raw_directory_name
         )
+        # The publisher time of the data loaded is the re-ingested export's own, as
+        # its saved metadata records it, never the time of this run.
+        metadata = socrata.read_saved_metadata(definition.dataset, path)
+        if metadata is None:
+            logger.warning(
+                "The %s export snapshot has no saved metadata beside it",
+                definition.dataset.identifier,
+            )
+        else:
+            runs.record_snapshot(run, SnapshotKind.PROVIDER_METADATA, metadata.snapshot)
+            run.publisher_rows_updated_at = metadata.rows_updated_at
         runs.record_snapshot(
             run, SnapshotKind.PROVIDER_EXPORT, snapshots.describe_existing(path)
         )

@@ -80,7 +80,7 @@ Four management commands load public data into the database: providers from both
 
 `ingest_ny_state_providers` and `ingest_nyc_health_providers` share one flow, `axisence.providers.pipeline.run_provider_ingestion`:
 
-1. Fetch the dataset's metadata, then its CSV export, each saved as a snapshot. With `--snapshot`, take a saved export instead and fetch nothing.
+1. Fetch the dataset's metadata, then its CSV export, each saved as a snapshot. With `--snapshot`, take a saved export instead and fetch nothing. The metadata saved beside that export, which a fetch names with the same time and run, is re-ingested with it, so the run records the publisher's last update time of the data it loads, never the time of the re-ingestion. A run whose export has no saved metadata beside it records no publisher time and logs a warning.
 2. Parse the export with pure functions: validate the headers, skip blank, too long, or repeated identifiers, and turn every row into a record, with a field warning for each unusable cell. A value too long for its column, or a count too large for it, is an unusable cell, so no published value can fail a write.
 3. In one transaction: upsert the records, mark absent providers missing behind the mass-disappearance guard, raise changed-keys flags, place unplaced providers into competitors, and refresh every competitor summary. A failure anywhere in it rolls all of it back.
 4. Geocode the candidates, each batch in a transaction of its own, so a geocoding failure never undoes stored providers.

@@ -151,6 +151,58 @@ def test_rerunning_on_the_fetched_snapshot_creates_updates_and_marks_nothing(
 
 
 @pytest.mark.django_db
+def test_a_reingestion_takes_the_publisher_time_saved_with_its_export(
+    fake_transport, raw_data_directory
+):
+    _serve_sources(fake_transport)
+    _run("ingest_ny_state_providers")
+    first_run = IngestionRun.objects.get()
+
+    output = _run(
+        "ingest_ny_state_providers",
+        "--snapshot",
+        str(_export_snapshot_path(raw_data_directory, first_run)),
+    )
+
+    run = IngestionRun.objects.exclude(pk=first_run.pk).get()
+    assert run.publisher_rows_updated_at == first_run.publisher_rows_updated_at
+    assert run.publisher_rows_updated_at is not None
+    assert {(snapshot.kind, snapshot.path) for snapshot in run.snapshots.all()} >= {
+        (snapshot.kind, snapshot.path)
+        for snapshot in first_run.snapshots.filter(
+            kind__in=(SnapshotKind.PROVIDER_METADATA, SnapshotKind.PROVIDER_EXPORT)
+        )
+    }
+    assert "Publisher last updated: " in output
+
+
+@pytest.mark.django_db
+def test_a_reingested_export_without_saved_metadata_has_no_publisher_time(
+    fake_transport, raw_data_directory, caplog
+):
+    export = (
+        raw_data_directory
+        / "ny-ocfs"
+        / "20260102T030405Z-run-999-child-care-regulated-programs-export.csv"
+    )
+    export.parent.mkdir(parents=True)
+    export.write_bytes(NY_STATE_EXPORT)
+    fake_transport.add("POST", geocoding.GEOCODER_BATCH_URL, recorded_result_for)
+
+    with caplog.at_level(logging.WARNING):
+        output = _run("ingest_ny_state_providers", "--snapshot", str(export))
+
+    run = IngestionRun.objects.get()
+    assert run.outcome == IngestionOutcome.SUCCEEDED
+    assert run.publisher_rows_updated_at is None
+    assert not run.snapshots.filter(kind=SnapshotKind.PROVIDER_METADATA).exists()
+    assert "Publisher last updated" not in output
+    assert "The cb42-qumz export snapshot has no saved metadata beside it" in [
+        record.getMessage() for record in caplog.records
+    ]
+
+
+@pytest.mark.django_db
 def test_socrata_token_is_sent_only_when_set_and_never_stored_or_logged(
     fake_transport, settings, caplog
 ):
