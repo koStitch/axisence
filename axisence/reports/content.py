@@ -6,11 +6,10 @@ import dataclasses
 from datetime import date, datetime
 
 from django.db.models import Max, Min, Q
-from django.utils import timezone
 
-from axisence.ingestion.models import IngestionOutcome, IngestionRun, IngestionSource
+from axisence.ingestion.models import IngestionRun, IngestionSource
 from axisence.providers.models import ProviderKind
-from axisence.reports import competitors
+from axisence.reports import competitors, provider_runs
 from axisence.reports.competitors import LoadedCompetitor, VerifiedData
 from axisence.reports.demographics import (
     DemographicsSection,
@@ -145,19 +144,7 @@ def build_report(
         )
     area_code = tabulation_area_code(job.target_point)
     demographics = load_demographics(area_code)
-    runs_by_source = {
-        run.source: run
-        for run in IngestionRun.objects.filter(
-            source__in=(
-                IngestionSource.NY_STATE_PROVIDERS,
-                IngestionSource.NYC_HEALTH_PROVIDERS,
-            ),
-            outcome=IngestionOutcome.SUCCEEDED,
-            finished_at__lte=cut_off,
-        )
-        .order_by("source", "-finished_at", "-pk")
-        .distinct("source")
-    }
+    runs_by_source = provider_runs.load_latest_provider_runs(cut_off)
     research_period = (
         Contact.objects.filter(job=job, entered_at__lte=cut_off)
         .filter(Q(retracted_at__isnull=True) | Q(retracted_at__gt=cut_off))
@@ -217,8 +204,8 @@ def build_report(
             for loaded in closed
         ),
         sources=SourcesSection(
-            ny_state_as_of=_provider_as_of(ny_state_run),
-            nyc_health_as_of=_provider_as_of(nyc_health_run),
+            ny_state_as_of=provider_runs.as_of_text(ny_state_run),
+            nyc_health_as_of=provider_runs.as_of_text(nyc_health_run),
             census_line=(
                 "US Census Bureau, American Community Survey 5-year estimates: no "
                 "figures shown in this report."
@@ -435,12 +422,3 @@ def _comparison_row(
         cells=tuple(cells),
         no_price_text="",
     )
-
-
-def _provider_as_of(run: IngestionRun | None) -> str:
-    if run is not None and run.publisher_rows_updated_at is not None:
-        published_on = timezone.localdate(run.publisher_rows_updated_at)
-        return f"published data as of {format_short_date(published_on)}"
-    if run is not None and run.finished_at is not None:
-        return f"loaded on {format_short_date(timezone.localdate(run.finished_at))}"
-    return "not loaded"

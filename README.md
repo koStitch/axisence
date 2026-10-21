@@ -79,6 +79,7 @@ Version numbers live only in the project files: `.python-version`, `pyproject.to
 | Load Census demographics | `docker compose run --rm web python manage.py ingest_census_demographics --vintage 2024` | container |
 | Load tabulation-area boundaries | `docker compose run --rm web python manage.py ingest_census_boundaries` | container |
 | Generate a report | `docker compose run --rm web python manage.py generate_report <job id>` | container |
+| Generate a teaser | `docker compose run --rm web python manage.py generate_teaser <job id>` | container |
 | Tests | `docker compose run --rm web pytest` | container |
 | Type check | `docker compose run --rm web mypy .` | container |
 | Lint | `uv run ruff check` | host |
@@ -270,7 +271,7 @@ Each researcher has an account of their own.
 4. Tick "Staff status".
 5. Under Groups, move "Researchers" to "Chosen groups", then choose "Save".
 
-Expected: the researcher logs in with that account and sees Research jobs, Job competitors, Contacts, and Observations under Research; the provider, competitor, and review flag pages with their review actions; the demographics pages read-only; and Reports under Reports, with "Generate report" on the pages of eligible research jobs.
+Expected: the researcher logs in with that account and sees Research jobs, Job competitors, Contacts, and Observations under Research; the provider, competitor, and review flag pages with their review actions; the demographics pages read-only; and Reports under Reports, with "Generate report" on the pages of eligible client report jobs and "Generate teaser" on the pages of eligible prospect jobs.
 
 ### Running a research job
 
@@ -333,7 +334,7 @@ A report is a client's competitor analysis as a PDF, generated from a research j
 
 1. Reports are stored as `data/private/reports/report-<N>.pdf`, which git ignores. They are confidential client documents: the application never deletes or overwrites them, and nothing backs them up. Back the folder up and prune it by hand.
 2. Downloading a report whose file was pruned shows "The file of report #N is no longer stored." and returns to the previous page.
-3. After the local database is reset, report numbers start again at 1. Move the old files out of `data/private/reports/` first: a generation whose file name already exists fails with "The report could not be generated."
+3. After the local database is reset, report numbers start again at 1. Move the old files out of `data/private/reports/` first: a generation whose file name already exists fails with "The report could not be generated.", or "The teaser could not be generated." for a teaser.
 
 ### From the command line
 
@@ -347,13 +348,13 @@ docker compose run --rm web python manage.py generate_report <job id>
 Report #<N> generated: report-<N>.pdf
 ```
 
-A refusal or a failure ends with `CommandError: <message>` and a non-zero exit status.
+While `DJANGO_LOG_LEVEL` is `INFO` or lower, the log record `Research job <job id> report <N> generated (<kind>)` is printed beside it, before or after. A refusal or a failure ends with `CommandError: <message>` and a non-zero exit status.
 
 ### When a report is refused
 
 | Message | Meaning and what to do |
 | --- | --- |
-| Only client report jobs produce a report. | The job's purpose is Prospect. Change the purpose to Client report when the job is for a client. |
+| Only client report jobs produce a report. | The job's purpose is Prospect. Choose "Generate teaser" for a teaser of the prospect, or change the purpose to Client report when the job is for a client. |
 | A Draft job cannot produce a report. | Research has not started. Confirm the target point, select competitors, and choose "Start research". |
 | A Cancelled job cannot produce a report. | Choose "Reopen research" when the job is wanted again. |
 | This job lists no competitors. | Choose "Search competitors" and save a selection. |
@@ -363,6 +364,77 @@ A refusal or a failure ends with `CommandError: <message>` and a non-zero exit s
 ### Generating again
 
 A report can be generated again at any time, for example after a late call. Each generation gets a new number and keeps the earlier reports. Numbers always increase but can skip after a failed generation.
+
+## Teasers
+
+A teaser is a one-page preview of the market around a prospect's location, printed as "Childcare market preview", for sales outreach. It is generated from a research job whose purpose is "Prospect". It holds public data only: the competitors of the job's kinds within its search radius, their licensed capacity, a map, five Census figures, and what the full report verifies, without any value. Every teaser is kept with its number; nothing in it can be changed or deleted. The application never sends a teaser: sending one is always the user's own act.
+
+### Before the first teaser
+
+1. Add Axisence's contact details to `.env`; the website must start with `https://`:
+
+    ```text
+    AXISENCE_WEBSITE_URL=https://<the website>
+    AXISENCE_CONTACT_EMAIL=<the email address for prospects>
+    AXISENCE_CONTACT_PHONE=<the phone number, as it should be printed>
+    ```
+
+2. Apply them to the running services:
+
+    ```powershell
+    docker compose up -d
+    ```
+
+    Expected: Compose recreates and starts the `db` and `web` containers, because both read `.env`; the database keeps its data. If the output does not show the `web` container recreated, run `docker compose up -d --force-recreate web`. Commands run with `docker compose run` read `.env` on every run.
+
+3. A website that does not start with `https://` stops the development server and every command with `ImproperlyConfigured: The environment variable AXISENCE_WEBSITE_URL must start with https://.`
+
+### Generating a teaser
+
+1. Under Research, open Research jobs and choose "Add research job".
+2. Choose the purpose "Prospect" and enter the prospect's organization name and the target address on one line. Check the search settings: the radius and the provider kinds decide which competitors the teaser counts. Choose "Save". Expected: the job opens with the lookup's outcome.
+3. Check the pin on the map and correct it when needed. Tick "Confirm the target point" and choose "Save and continue editing". Expected: the confirmation and the ZIP Code Tabulation Area appear.
+4. When the prospect is itself a listed provider, choose it as "Own competitor". Otherwise it appears as its own nearest competitor.
+5. Choose "Generate teaser" beside the status buttons. Changes made on the page are saved first. Expected: "Teaser #N generated.", and the teaser appears in the job's Reports section with the kind "Teaser". No competitor search, selection, or research is needed, and the job can stay Draft.
+
+### Downloading
+
+1. Choose "Download" beside the teaser in the job's Reports section. Alternatively, under Reports, open Reports, filter by kind "Teaser", and choose "Download". Expected: the browser saves `market-preview-<N>.pdf`.
+2. Teasers are stored as `data/private/reports/market-preview-<N>.pdf`, beside the reports, under the same rules as report files. Teaser and report numbers share one sequence.
+
+### From the command line
+
+```powershell
+docker compose run --rm web python manage.py generate_teaser <job id>
+```
+
+```text
+Teaser #<N> generated: market-preview-<N>.pdf
+```
+
+While `DJANGO_LOG_LEVEL` is `INFO` or lower, the log record `Research job <job id> teaser <N> generated` is printed beside it, before or after. A refusal or a failure ends with `CommandError: <message>` and a non-zero exit status.
+
+### When a teaser is refused
+
+| Message | Meaning and what to do |
+| --- | --- |
+| Only prospect jobs produce a teaser. | The job's purpose is Client report. Change the purpose to Prospect when the job is for a prospect. |
+| A Cancelled job cannot produce a teaser. | Choose "Reopen research" when the job is wanted again. |
+| Confirm the target point first. | Check the pin, tick "Confirm the target point", and save. |
+| Axisence's contact details are not set: `<names>`. | Set the named variables in `.env` as "Before the first teaser" describes. |
+| No competitors of the job's kinds lie within its search radius. | While the job is Draft, widen the search radius or add provider kinds, and save. |
+| The Census figure list for vintage `<year>` does not match the stored labels. | As for reports: a developer checks the codes and labels and updates `axisence/reports/figure_lists.py`. |
+| The teaser does not fit on one page. | An input the layout cannot hold. A developer adjusts `axisence/reports/templates/reports/teaser.css`; no teaser or file is kept. |
+| The teaser could not be generated. | An unexpected failure. The log names the error's class and the job's number; no teaser or file is kept. |
+
+### Generating again
+
+A teaser can be generated again at any time. Each generation gets a new number and keeps the earlier teasers. A teaser stays as generated when the job changes later.
+
+### Before sending a teaser
+
+1. Open the PDF and check the nearest competitors. A prospect that is itself a listed provider appears as its own nearest competitor unless the job names it as "Own competitor".
+2. The teaser names the prospect's organization and, through its map and distances, shows the prospect's location. Send it only to that prospect, from outside the application.
 
 ## Documentation
 

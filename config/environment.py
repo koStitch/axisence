@@ -64,6 +64,21 @@ def read_list(
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def read_https_url(name: str, *, default: str | _Required = _Required.REQUIRED) -> str:
+    """Return the variable's value without surrounding whitespace; it must start with
+    https://.
+    """
+    value = _read_non_blank_value(name)
+    if value is None:
+        return _default_or_raise(name, default)
+    url = value.strip()
+    if not url.startswith("https://"):
+        raise ImproperlyConfigured(
+            f"The environment variable {name} must start with https://."
+        )
+    return url
+
+
 def _read_non_blank_value(name: str) -> str | None:
     value = os.environ.get(name, "")
     if value.strip() == "":

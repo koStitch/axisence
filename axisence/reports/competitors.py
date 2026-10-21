@@ -1,5 +1,8 @@
 """The competitors a report presents, as of its cut-off: the main list, the reported
 closures, their labels, and their profiles.
+
+The texts that take a competitor's own parts also serve teasers, whose competitors are
+search candidates.
 """
 
 import dataclasses
@@ -8,7 +11,7 @@ from datetime import datetime
 
 from django.db.models import prefetch_related_objects
 
-from axisence.providers.models import Provider, ProviderKind
+from axisence.providers.models import Competitor, Provider, ProviderKind
 from axisence.reports.errors import ReportRefusedError
 from axisence.reports.formatting import (
     EN_DASH,
@@ -39,6 +42,7 @@ from axisence.research.job_competitors import (
 )
 from axisence.research.labels import (
     CompetitorLabels,
+    LicensedCapacity,
     licensed_capacity,
     load_competitor_labels,
 )
@@ -170,15 +174,21 @@ def load_current_values_as_of(
     }
 
 
-def is_permanently_closed(loaded: LoadedCompetitor) -> bool:
+def is_reported_permanently_closed(labels: CompetitorLabels) -> bool:
     return (
-        _reported_closure_contact(loaded, OperatingStatus.PERMANENTLY_CLOSED)
+        _reported_closure_contact(labels, OperatingStatus.PERMANENTLY_CLOSED)
         is not None
     )
 
 
+def is_permanently_closed(loaded: LoadedCompetitor) -> bool:
+    return is_reported_permanently_closed(loaded.labels)
+
+
 def permanent_closure_text(loaded: LoadedCompetitor) -> str:
-    contact = _reported_closure_contact(loaded, OperatingStatus.PERMANENTLY_CLOSED)
+    contact = _reported_closure_contact(
+        loaded.labels, OperatingStatus.PERMANENTLY_CLOSED
+    )
     if contact is None:
         raise ValueError("The competitor is not reported permanently closed.")
     return format_closure("Reported permanently closed", contact)
@@ -186,11 +196,15 @@ def permanent_closure_text(loaded: LoadedCompetitor) -> str:
 
 def temporary_closure_contact(loaded: LoadedCompetitor) -> Contact | None:
     """Return the contact of a current temporary closure, if any."""
-    return _reported_closure_contact(loaded, OperatingStatus.TEMPORARILY_CLOSED)
+    return _reported_closure_contact(loaded.labels, OperatingStatus.TEMPORARILY_CLOSED)
+
+
+def display_name_text(competitor: Competitor) -> str:
+    return competitor.display_name.strip() or "Name not published"
 
 
 def name_text(loaded: LoadedCompetitor) -> str:
-    return loaded.displayed.competitor.display_name.strip() or "Name not published"
+    return display_name_text(loaded.displayed.competitor)
 
 
 def address_text(loaded: LoadedCompetitor) -> str:
@@ -206,34 +220,49 @@ def borough_text(loaded: LoadedCompetitor) -> str:
     return loaded.displayed.competitor.get_borough_display()
 
 
-def provider_kinds(loaded: LoadedCompetitor) -> tuple[ProviderKind, ...]:
-    """Return the kinds of the active providers, or of all when none is active."""
-    providers = loaded.active_providers or loaded.providers
+def kinds_of(providers: Sequence[Provider]) -> tuple[ProviderKind, ...]:
+    """Return the providers' kinds, once each, in ProviderKind order."""
     present = {provider.kind for provider in providers}
     return tuple(kind for kind in ProviderKind if kind in present)
 
 
+def kinds_label(kinds: Sequence[ProviderKind]) -> str:
+    return ", ".join(kind.label for kind in kinds)
+
+
+def provider_kinds(loaded: LoadedCompetitor) -> tuple[ProviderKind, ...]:
+    """Return the kinds of the active providers, or of all when none is active."""
+    return kinds_of(loaded.active_providers or loaded.providers)
+
+
 def kinds_text(loaded: LoadedCompetitor) -> str:
-    return ", ".join(kind.label for kind in provider_kinds(loaded))
+    return kinds_label(provider_kinds(loaded))
+
+
+def is_capacity_incomplete(capacity: LicensedCapacity) -> bool:
+    """Return whether the capacity is unpublished or only partly published."""
+    return capacity.total is None or not capacity.is_complete
 
 
 def has_incomplete_capacity(loaded: LoadedCompetitor) -> bool:
     """Return whether the capacity is unpublished, incomplete, or not listed."""
     if loaded.labels.is_no_longer_listed:
         return True
-    capacity = licensed_capacity(loaded.active_providers)
-    return capacity.total is None or not capacity.is_complete
+    return is_capacity_incomplete(licensed_capacity(loaded.active_providers))
 
 
-def licensed_capacity_text(loaded: LoadedCompetitor) -> str:
-    if loaded.labels.is_no_longer_listed:
-        return "Not listed"
-    capacity = licensed_capacity(loaded.active_providers)
+def capacity_text(capacity: LicensedCapacity) -> str:
     if capacity.total is None:
         return "Unpublished"
     if not capacity.is_complete:
         return f"{format_count(capacity.total)} (incomplete)"
     return format_count(capacity.total)
+
+
+def licensed_capacity_text(loaded: LoadedCompetitor) -> str:
+    if loaded.labels.is_no_longer_listed:
+        return "Not listed"
+    return capacity_text(licensed_capacity(loaded.active_providers))
 
 
 def ages_served_text(loaded: LoadedCompetitor) -> str:
@@ -352,9 +381,9 @@ def current_yes_answer(current: CurrentValues, kind: ObservationKind) -> bool:
 
 
 def _reported_closure_contact(
-    loaded: LoadedCompetitor, operating_status: OperatingStatus
+    labels: CompetitorLabels, operating_status: OperatingStatus
 ) -> Contact | None:
-    closure = loaded.labels.reported_closure
+    closure = labels.reported_closure
     if closure is None or not any(
         observation.operating_status == operating_status
         for observation in closure.observations

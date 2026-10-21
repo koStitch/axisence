@@ -4,6 +4,9 @@
   {% if can_generate_report %}
     <button type="submit" class="button" name="_generate_report" value="1">Generate report</button>
   {% endif %}
+  {% if can_generate_teaser %}
+    <button type="submit" class="button" name="_generate_teaser" value="1">Generate teaser</button>
+  {% endif %}
 {% endblock %}
 
 {% block after_related_objects %}

@@ -1,6 +1,7 @@
-"""The Census figures a report shows, per vintage, checked against the stored labels
-before use. A new vintage is added only after its codes and labels are checked by hand,
-because the Census Bureau can renumber codes between vintages.
+"""The Census figures a report shows, and the subset a teaser shows, per vintage,
+checked against the stored labels before use. A new vintage is added only after its
+codes and labels are checked by hand, because the Census Bureau can renumber codes
+between vintages.
 """
 
 import dataclasses
@@ -212,4 +213,10 @@ FIGURE_LISTS: Mapping[int, tuple[FigureDefinition, ...]] = {
             top_coding_cap=3500,
         ),
     ),
+}
+
+# The headline figures a teaser shows, in its order, per vintage. Every vintage of
+# FIGURE_LISTS declares them, and every code is in that vintage's list.
+TEASER_FIGURE_CODES: Mapping[int, tuple[str, ...]] = {
+    2024: ("DP05_0005", "DP03_0015", "DP02_0014", "DP02_0054", "DP03_0062"),
 }

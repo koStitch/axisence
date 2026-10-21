@@ -279,7 +279,7 @@ A slot is what one value answers: the price of one age group on one schedule, th
 
 ## Reports
 
-A report presents a research job's competitors with their public data and research values, and the Census figures of the target location's tabulation area.
+A report presents a research job's competitors with their public data and research values, and the Census figures of the target location's tabulation area. A teaser presents the market around a prospect's location from public data only.
 
 ### Research values in a report
 
@@ -313,7 +313,7 @@ The comparison sets competitors side by side at the reference ages 12, 24, 36, a
 
 ### Census figures
 
-A report shows the figures of the newest ingested vintage that has a figure list, for the target location's tabulation area. Before every report, the list's expected labels are compared with the stored labels of that vintage, whatever the target's area, and a mismatch refuses the report.
+A report shows the figures of the newest ingested vintage that has a figure list, for the target location's tabulation area. Before every report and teaser, the list's expected labels are compared with the stored labels of that vintage, whatever the target's area, and a mismatch refuses the report or teaser.
 
 The vintage 2024 figure list:
 
@@ -351,6 +351,23 @@ A median in the highest interval is published as the cap plus one, and a median 
 
 These are the vintage 2024 values. The caps and the floor of `DP03_0062` appear in the published annotations; `DP03_0086` takes the floor its income family shares. The Census Bureau can renumber codes and change caps between vintages, so a new vintage is used only after its figure list, labels, caps, and floors are checked by hand.
 
+### Teasers
+
+1. A teaser is a one-page preview of the market around a prospect's location, printed as "Childcare market preview" and generated from a Prospect research job. It holds public data only. The only research fact it reads is a reported permanent closure current at its cut-off.
+2. Counted competitors are the job's search candidates at generation: active, current, located within the search radius, with an active provider of one of the job's kinds, the own competitor excluded. Candidates reported permanently closed as of the cut-off are left out. The selection and the research statuses are never read, and neither is any other research value, a temporary closure included. A competitor left out for a closure appears nowhere on the page.
+3. Counted competitors are ordered by straight-line distance, nearest first, ties by competitor number. The nearest eight are named with their kinds, distance, and licensed capacity, and "School-based" is their only label. Every other counted competitor is an unnumbered dot on the map. A named competitor's number sits on its position; where it would cover another number, another named competitor's position, the target, or the scale bar, or run off the map, it sits beside the position, joined to it by a visible line that runs clear of the other numbers and of every position but those touching its own. Such a number prefers a spot plainly nearest its own position, then one that leaves the plain dots visible. In very tight clusters, such as eight competitors within about 0.08 miles of one another, a line can still cross another or pass close to a position. A ZIP Code Tabulation Area's code sits at its area's own label point, or at another spot inside the area, where it fits inside the map clear of the numbers, their lines and positions, the target, the scale bar, and the codes of areas with a larger part on the map, preferring spots clear of the plain dots and the circle; a code that fits nowhere is left out.
+4. The count per kind covers the job's kinds, zeros included. A competitor counts under each of the job's kinds that its active providers hold, so a competitor with providers of several of them counts under each, and the page then says so. Kinds outside the job's kinds, such as a center's school-age program, are not counted, though the named list shows them among a competitor's kinds. The capacity total sums the published capacities of the counted competitors' active providers, beside the number whose capacity is unpublished or incomplete.
+5. The job's own competitor is never counted, named, or drawn. The page says "Excludes your own program." and gives no fact of it.
+6. The headline figures, in this order:
+    1. `DP05_0005`, "Children under 5 years (Census age bracket)": count, and percent of total population.
+    2. `DP03_0015`, "With all parents in the family in the labor force": percent of own children under 6 years.
+    3. `DP02_0014`, "Households with one or more people under 18 years": percent of households.
+    4. `DP02_0054`, "Enrolled in nursery school or preschool": count.
+    5. `DP03_0062`, "Median household income (2024 dollars)": dollars.
+    6. They are declared per vintage beside the figure list (`TEASER_FIGURE_CODES`), and the whole list is checked as for every report.
+7. A program whose address its regulator withholds has no location, so no search finds it. When the job's kinds include family or group family day care, the page says "Programs whose address the regulator withholds are not counted."
+8. The target address never appears. The page calls the target "your location" and names only the prospect's organization. "Public data as of <date>" in the footer gives the earlier of the two provider datasets' as-of dates, and is left out when either dataset has no run by the cut-off.
+
 ## Vocabulary
 
 | Term | Meaning |
@@ -367,6 +384,8 @@ These are the vintage 2024 values. The caps and the floor of `DP03_0062` appear 
 | Slot | What one value answers: the price of one age group on one schedule, the availability of one age group, one kind of discount or charge, or one single fact. |
 | Licensed capacity | The maximum number of children a provider may serve, as published by its regulator. |
 | Report | One generated competitor analysis of one research job: its record and its PDF, with a number. |
-| Cut-off | The moment a report was generated; only contacts entered and retractions made by then count in it. |
+| Teaser | A one-page preview of the market around a prospect's location, generated from a Prospect research job: a report record of kind Teaser and its PDF. |
+| Market preview | The teaser's printed name, used on the page, in its footer, its file name, and its PDF title. |
+| Cut-off | The moment a report or teaser was generated; only contacts entered and retractions made by then count in it. |
 | Monthly equivalent | A price converted to an approximate amount per month when a report is rendered, never stored. |
 | Reference age | An age in months at which the tuition comparison compares competitors. |

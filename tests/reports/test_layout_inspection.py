@@ -1,5 +1,6 @@
-"""Renders the reports inspected page by page into scratch/report-inspection/. Run only
-with -m layout_inspection; the PDFs remain after the run.
+"""Renders the reports and teasers inspected page by page into
+scratch/report-inspection/. Run only with -m layout_inspection; the PDFs remain after
+the run.
 """
 
 import math
@@ -36,9 +37,11 @@ from tests.reports.factories import (
     add_job_competitor,
     add_price,
     make_census_2024,
+    make_prospect_job,
     make_provider_run,
     make_report_job,
     record_every_value,
+    set_contact_settings,
 )
 from tests.research.factories import (
     BOROUGH_HALL,
@@ -395,3 +398,193 @@ def test_render_the_inspection_reports(settings):
             target_directory / f"{name}.pdf",
         )
         assert (target_directory / f"{name}.pdf").stat().st_size == report.size_bytes
+
+
+def _candidate(job, miles, bearing, name, **fields):
+    return make_located_competitor(
+        _point_at(job.target_point, miles, bearing), name=name, **fields
+    )
+
+
+def _dense_market_job(researcher):
+    job = make_prospect_job(
+        researcher=researcher,
+        organization_name=(
+            "Synthetic Brooklyn Heights Early Learning Cooperative and Family "
+            "Enrichment Collective " * 3
+        )[:255],
+    )
+    for index in range(74):
+        if index < 8:
+            name = (
+                "Synthetic Long Named Early Learning Center and Family Enrichment "
+                f"Academy Number {index + 1} of Brooklyn Heights"
+            )
+        else:
+            name = f"Synthetic Competitor {index + 1:02d}"
+        is_school_based = index % 9 == 4
+        competitor = _candidate(
+            job,
+            0.05 + index * 0.0125,
+            index * 137.508,
+            name,
+            kind=ProviderKind.SCHOOL_BASED_CHILD_CARE
+            if is_school_based
+            else ProviderKind.DAY_CARE_CENTER,
+            total_capacity=20 + index * 5,
+        )
+        if is_school_based:
+            Competitor.objects.filter(pk=competitor.pk).update(is_school_based=True)
+        if index % 5 == 1:
+            make_provider(
+                source=ProviderSource.NY_STATE,
+                original_name=name,
+                kind=ProviderKind.SCHOOL_AGE_CHILD_CARE,
+                competitor=competitor,
+                total_capacity=15,
+            )
+    return job
+
+
+def _one_competitor_job(researcher):
+    job = make_prospect_job(researcher=researcher)
+    _candidate(job, 0.3, 40, "Synthetic Only Competitor", total_capacity=60)
+    return job
+
+
+def _outside_every_area_teaser_job(researcher):
+    job = make_prospect_job(researcher=researcher, target_point=OUTSIDE_EVERY_AREA)
+    for index, miles in enumerate((0.3, 0.6)):
+        _candidate(
+            job,
+            miles,
+            90 + index * 60,
+            f"Synthetic Harbor Center {index + 1}",
+            total_capacity=45,
+        )
+    return job
+
+
+def _no_census_vintage_job(researcher):
+    job = make_prospect_job(researcher=researcher)
+    for index, miles in enumerate((0.2, 0.45, 0.7)):
+        _candidate(
+            job,
+            miles,
+            index * 120,
+            f"Synthetic Center {index + 1}",
+            total_capacity=30 + index * 10,
+        )
+    return job
+
+
+def _unpublished_capacities_job(researcher):
+    job = make_prospect_job(researcher=researcher)
+    _candidate(job, 0.15, 20, "Synthetic Published Center", total_capacity=64)
+    _candidate(job, 0.3, 100, "Synthetic Unpublished Center")
+    incomplete = _candidate(
+        job, 0.45, 180, "Synthetic Incomplete Center", total_capacity=36
+    )
+    make_provider(
+        source=ProviderSource.NY_STATE,
+        original_name="Synthetic Incomplete Center",
+        kind=ProviderKind.SCHOOL_AGE_CHILD_CARE,
+        competitor=incomplete,
+    )
+    school = _candidate(
+        job,
+        0.6,
+        260,
+        "Synthetic School Program",
+        kind=ProviderKind.SCHOOL_BASED_CHILD_CARE,
+    )
+    Competitor.objects.filter(pk=school.pk).update(is_school_based=True)
+    _candidate(job, 0.75, 330, "Synthetic Second Published Center", total_capacity=48)
+    return job
+
+
+def _own_program_home_kinds_job(researcher):
+    own = make_located_competitor(
+        _point_at(BOROUGH_HALL, 0.05, 300), name="Synthetic Own Program"
+    )
+    job = make_prospect_job(
+        researcher=researcher,
+        provider_kinds=["day_care_center", "group_family_day_care", "family_day_care"],
+        own_competitor=own,
+    )
+    _candidate(job, 0.25, 60, "Synthetic Center", total_capacity=50)
+    _candidate(
+        job,
+        0.4,
+        150,
+        "Synthetic Group Family Day Care",
+        kind=ProviderKind.GROUP_FAMILY_DAY_CARE,
+        total_capacity=12,
+    )
+    _candidate(
+        job,
+        0.55,
+        240,
+        "Synthetic Family Day Care",
+        kind=ProviderKind.FAMILY_DAY_CARE,
+        total_capacity=8,
+    )
+    withheld = make_competitor(display_name="Synthetic Address Withheld Home")
+    make_provider(
+        source=ProviderSource.NY_STATE,
+        original_name="Synthetic Address Withheld Home",
+        street_address="",
+        kind=ProviderKind.FAMILY_DAY_CARE,
+        competitor=withheld,
+        total_capacity=8,
+    )
+    return job
+
+
+TEASER_CASES = {
+    "dense-market": _dense_market_job,
+    "one-competitor": _one_competitor_job,
+    "outside-every-area": _outside_every_area_teaser_job,
+    "no-census-vintage": _no_census_vintage_job,
+    "unpublished-capacities": _unpublished_capacities_job,
+    "own-program-home-kinds": _own_program_home_kinds_job,
+}
+
+
+# One test per case, so each runs in a transaction of its own: a teaser counts every
+# search candidate, so cases sharing one would count each other's competitors.
+@pytest.mark.layout_inspection
+@pytest.mark.parametrize("case", list(TEASER_CASES))
+def test_render_the_inspection_teasers(settings, case):
+    researcher = make_researcher()
+    _make_area_grid()
+    if case != "no-census-vintage":
+        make_census_2024(TabulationArea.objects.get(code="11201"))
+    now = timezone.now()
+    make_provider_run(
+        IngestionSource.NY_STATE_PROVIDERS,
+        finished_at=now - timedelta(days=1),
+        publisher_rows_updated_at=now - timedelta(days=1, hours=6),
+    )
+    make_provider_run(
+        IngestionSource.NYC_HEALTH_PROVIDERS, finished_at=now - timedelta(days=2)
+    )
+    set_contact_settings(
+        settings,
+        website_url=(
+            "https://www.axisence-childcare-market-analysis.example/brooklyn/"
+            "market-preview"
+        ),
+        email="brooklyn-market-previews@axisence-childcare-analysis.example",
+        phone="+1 (555) 010-4400 ext. 2047",
+    )
+    target_directory = Path(settings.BASE_DIR) / "scratch" / "report-inspection"
+    target_directory.mkdir(parents=True, exist_ok=True)
+
+    teaser = generation.generate_teaser(
+        job=TEASER_CASES[case](researcher), generated_by=None
+    )
+
+    target = target_directory / f"teaser-{case}.pdf"
+    shutil.copyfile(Path(settings.REPORT_DIRECTORY) / teaser.file_name, target)
+    assert target.stat().st_size == teaser.size_bytes

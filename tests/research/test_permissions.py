@@ -41,9 +41,11 @@ RESEARCHERS_PERMISSIONS = {
     ("research", "retract_contact"),
     ("research", "add_observation"),
     ("research", "view_observation"),
-    # Granted by reports.0002_grant_report_permissions_to_researchers.
+    # Granted by reports.0002_grant_report_permissions_to_researchers and
+    # reports.0004_grant_teaser_permission_to_researchers.
     ("reports", "view_report"),
     ("reports", "generate_report"),
+    ("reports", "generate_teaser"),
 }
 
 

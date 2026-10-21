@@ -12,6 +12,7 @@ ALL_READERS = [
     environment.read_boolean,
     environment.read_integer,
     environment.read_list,
+    environment.read_https_url,
 ]
 
 
@@ -39,6 +40,7 @@ def test_required_variable_that_is_unset_or_blank_raises(monkeypatch, read, valu
         (environment.read_boolean, True),
         (environment.read_integer, 5432),
         (environment.read_list, ["localhost"]),
+        (environment.read_https_url, "https://axisence.example"),
     ],
 )
 @pytest.mark.parametrize("value", [None, ""])
@@ -83,6 +85,12 @@ def test_list_parses(monkeypatch, value, expected):
     assert environment.read_list(VARIABLE) == expected
 
 
+def test_https_url_parses(monkeypatch):
+    monkeypatch.setenv(VARIABLE, " https://axisence.example/previews ")
+
+    assert environment.read_https_url(VARIABLE) == "https://axisence.example/previews"
+
+
 @pytest.mark.parametrize(
     ("read", "value"),
     [
@@ -90,6 +98,8 @@ def test_list_parses(monkeypatch, value, expected):
         (environment.read_boolean, "1"),
         (environment.read_integer, "five"),
         (environment.read_integer, "5.5"),
+        (environment.read_https_url, "http://axisence.example"),
+        (environment.read_https_url, "axisence.example"),
     ],
 )
 def test_invalid_value_raises_without_repeating_the_value(monkeypatch, read, value):

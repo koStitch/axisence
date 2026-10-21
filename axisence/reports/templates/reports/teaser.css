@@ -1,0 +1,233 @@
+@page {
+  size: letter portrait;
+  margin: 0.45in 0.55in 0.75in;
+  @bottom-left {
+    content: element(footer-prepared-for);
+    font-size: 7pt;
+    color: #6b7580;
+    vertical-align: top;
+    padding-top: 0.18in;
+  }
+  @bottom-right {
+    content: element(footer-preview);
+    font-size: 7pt;
+    color: #6b7580;
+    vertical-align: top;
+    padding-top: 0.18in;
+  }
+}
+.footer-prepared-for {
+  position: running(footer-prepared-for);
+  font-size: 7pt;
+  color: #6b7580;
+}
+.footer-organization {
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+.footer-preview {
+  position: running(footer-preview);
+  font-size: 7pt;
+  color: #6b7580;
+  text-align: right;
+  white-space: nowrap;
+}
+html {
+  font-family: "Inter", sans-serif;
+  color: #1a1a1a;
+}
+body {
+  margin: 0;
+  font-size: 7.5pt;
+  line-height: 1.3;
+}
+p, ul {
+  margin: 0 0 2pt;
+}
+ul {
+  padding-left: 0;
+  list-style: none;
+}
+h1, h2 {
+  color: #1f3a5f;
+  line-height: 1.15;
+}
+h2 {
+  font-size: 10.5pt;
+  margin: 0 0 3pt;
+}
+section {
+  margin-top: 5pt;
+}
+.page-header {
+  border-bottom: 0.75pt solid #1f3a5f;
+  padding-bottom: 5pt;
+}
+.wordmark {
+  font-size: 13pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #1f3a5f;
+  margin: 0 0 1pt;
+}
+h1 {
+  font-size: 19pt;
+  margin: 0 0 3pt;
+}
+.prepared-for {
+  font-size: 10pt;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+.preview-date {
+  color: #6b7580;
+}
+.headline {
+  font-size: 13pt;
+  font-weight: 600;
+  color: #1f3a5f;
+  margin-bottom: 3pt;
+}
+.kind-counts li {
+  display: inline;
+  margin-right: 10pt;
+}
+.capacity span {
+  margin-right: 14pt;
+}
+.note {
+  font-size: 7pt;
+  color: #4a535c;
+}
+.competitors {
+  display: flex;
+  gap: 0.22in;
+  align-items: flex-start;
+}
+.map-column {
+  flex: 0 0 2.8in;
+}
+.list-column {
+  flex: 1 1 0;
+  min-width: 0;
+}
+svg.map {
+  display: block;
+  width: 2.8in;
+  height: 2.41in;
+}
+.legend {
+  font-size: 7pt;
+  margin-top: 3pt;
+}
+.legend li {
+  display: inline-block;
+  margin: 0 10pt 0 0;
+}
+svg.swatch {
+  width: 0.11in;
+  height: 0.11in;
+  vertical-align: middle;
+}
+table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.named-competitors {
+  font-size: 6.5pt;
+  line-height: 1.2;
+}
+th, td {
+  padding: 1pt 4pt 1pt 0;
+  border-bottom: 0.5pt solid #d5d9de;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+th {
+  color: #1f3a5f;
+  font-weight: 600;
+  font-size: 6.5pt;
+  border-bottom: 0.75pt solid #1f3a5f;
+}
+.number-column {
+  width: 0.22in;
+}
+.kind-column {
+  width: 1in;
+}
+.distance-column {
+  width: 0.55in;
+}
+.capacity-column {
+  width: 0.62in;
+}
+.competitor-name {
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+.competitor-label {
+  font-size: 6.5pt;
+  color: #4a535c;
+}
+.locked-panel {
+  background: #eef2f6;
+  padding: 5pt 8pt;
+}
+.locked-heading {
+  display: flex;
+  align-items: center;
+  gap: 5pt;
+}
+.locked-heading h2 {
+  margin: 0;
+}
+svg.lock {
+  width: 0.15in;
+  height: 0.15in;
+}
+.locked-items {
+  columns: 2;
+  column-gap: 0.25in;
+  margin: 3pt 0;
+  font-size: 7.5pt;
+}
+.locked-items li {
+  margin: 0 0 1pt;
+}
+.subheading {
+  font-size: 7pt;
+  color: #4a535c;
+}
+.figures {
+  font-size: 7.5pt;
+}
+.figures th:nth-child(2) {
+  width: 1.3in;
+}
+.figures th:nth-child(3) {
+  width: 2.6in;
+}
+.call-to-action {
+  border-left: 2pt solid #1f3a5f;
+  padding: 3pt 8pt;
+}
+.contact-details a, .contact-phone {
+  display: inline-block;
+  margin-right: 16pt;
+  white-space: nowrap;
+  font-size: 9pt;
+  font-weight: 600;
+  color: #1f3a5f;
+  text-decoration: none;
+}
+.small-print {
+  font-size: 6.5pt;
+  color: #6b7580;
+  border-top: 0.5pt solid #d5d9de;
+  padding-top: 3pt;
+}
+.small-print-label {
+  font-weight: 600;
+}

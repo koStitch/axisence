@@ -15,3 +15,7 @@ class ReportGenerationError(ReportError):
 
 class ExternalResourceRefusedError(Exception):
     """Rendering asked for a resource outside the report's own HTML."""
+
+
+class NotOneLetterPageError(Exception):
+    """A document meant to be exactly one US Letter portrait page laid out otherwise."""

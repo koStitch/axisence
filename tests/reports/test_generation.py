@@ -226,7 +226,9 @@ def test_an_existing_report_file_is_never_overwritten(report_directory):
     existing.write_bytes(b"old")
 
     with pytest.raises(FileExistsError):
-        storage.write_report_file(7, b"new")
+        storage.write_report_file(
+            7, b"new", file_name_prefix=storage.REPORT_FILE_NAME_PREFIX
+        )
 
     assert existing.read_bytes() == b"old"
     assert _stored_files(report_directory) == ["report-7.pdf"]

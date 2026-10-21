@@ -1,4 +1,6 @@
-"""Generated client reports, kept with their job and never changed or deleted."""
+"""Generated client reports and teasers, kept with their job and never changed or
+deleted.
+"""
 
 from collections.abc import Iterable
 
@@ -12,6 +14,7 @@ from axisence.research.models import PermanentRecordError, ResearchJob
 class ReportKind(models.TextChoices):
     DRAFT = "draft", "Draft"
     FINAL = "final", "Final"
+    TEASER = "teaser", "Teaser"
 
 
 _NEVER_CHANGED_OR_DELETED_MESSAGE = "Reports are never changed or deleted."
@@ -28,10 +31,11 @@ class ReportQuerySet(models.QuerySet["Report"]):
 
 
 class Report(models.Model):
-    """One generated competitor analysis of a research job.
+    """One generated document of a research job: a client's competitor analysis or a
+    teaser.
 
-    The primary key is the report's number, printed on every page; the generation
-    time is the cut-off of the research values it used.
+    The primary key is the document's number, printed on its pages; the generation
+    time is its cut-off.
     """
 
     job = models.ForeignKey(
@@ -73,7 +77,10 @@ class Report(models.Model):
     class Meta:
         ordering = ("-pk",)
         default_permissions = ("view",)
-        permissions = (("generate_report", "Can generate reports"),)
+        permissions = (
+            ("generate_report", "Can generate reports"),
+            ("generate_teaser", "Can generate teasers"),
+        )
 
     def __str__(self) -> str:
         return f"Report #{self.pk}"

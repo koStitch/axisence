@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8">
+<title>Axisence market preview {{ number }}</title>
+<style>{% include "reports/teaser.css" %}</style>
+</head>
+<body>
+<div class="footer-prepared-for"><div class="footer-organization">Prepared for {{ teaser.organization_name }}</div><div>by Axisence</div></div>
+<div class="footer-preview"><div>Preview #{{ number }}</div>{% if teaser.public_data_as_of %}<div>Public data as of {{ teaser.public_data_as_of }}</div>{% endif %}</div>
+<header class="page-header">
+  <p class="wordmark">Axisence</p>
+  <h1>Childcare market preview</h1>
+  <p class="prepared-for">Prepared for {{ teaser.organization_name }}</p>
+  <p class="preview-date">{{ teaser.preview_date }}</p>
+</header>
+<section class="market-summary">
+  <p class="headline">{{ teaser.summary.headline }}</p>
+  <p>{{ teaser.summary.kinds_counted }}</p>
+  <ul class="kind-counts">{% for kind_count in teaser.summary.kind_counts %}<li>{{ kind_count.label }}: {{ kind_count.count }}</li>{% endfor %}</ul>
+  {% if teaser.summary.several_kinds_note %}<p class="note">{{ teaser.summary.several_kinds_note }}</p>{% endif %}
+  <p class="capacity"><span>{{ teaser.summary.total_capacity }}</span><span>{{ teaser.summary.incomplete_capacity }}</span></p>
+  <p class="note">{{ teaser.summary.capacity_note }}</p>
+  {% if teaser.summary.own_program_line %}<p>{{ teaser.summary.own_program_line }}</p>{% endif %}
+</section>
+<section class="competitors">
+  <div class="map-column">
+    {% include "reports/teaser_map.html" %}
+    <ul class="legend">
+      <li><svg class="swatch" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" transform="rotate(45 12 12)" fill="#ffffff" stroke="#1f3a5f" stroke-width="2.5"/></svg> Your location</li>
+      <li><svg class="swatch" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#1f3a5f"/></svg> Competitor, numbered as in the list</li>
+      <li><svg class="swatch" viewBox="0 0 24 24"><line x1="5" y1="19" x2="17" y2="7" stroke="#1f3a5f" stroke-width="2"/><circle cx="5" cy="19" r="3.5" fill="#1f3a5f"/></svg> Position of a moved number</li>
+      <li><svg class="swatch" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="#7f93ad"/></svg> Other competitor within the radius</li>
+      <li><svg class="swatch" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#1f3a5f" stroke-width="2" stroke-dasharray="4 3"/></svg> Search radius, {{ teaser.market_map.radius_label }}</li>
+      <li><svg class="swatch" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" fill="none" stroke="#9aa3ad" stroke-width="1.5"/></svg> ZIP Code Tabulation Area outline, with its code</li>
+    </ul>
+  </div>
+  <div class="list-column">
+    <h2>Nearest competitors</h2>
+    <table class="named-competitors">
+      <thead><tr><th class="number-column">No.</th><th>Competitor</th><th class="kind-column">Kind</th><th class="distance-column">Distance (straight line)</th><th class="capacity-column">Licensed capacity</th></tr></thead>
+      <tbody>
+        {% for competitor in teaser.named_competitors %}
+          <tr><td>{{ competitor.number }}</td><td><div class="competitor-name">{{ competitor.name }}</div>{% if competitor.is_school_based %}<div class="competitor-label">School-based</div>{% endif %}</td><td>{{ competitor.kinds }}</td><td>{{ competitor.distance }}</td><td>{{ competitor.licensed_capacity }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if teaser.more_competitors_line %}<p class="note">{{ teaser.more_competitors_line }}</p>{% endif %}
+  </div>
+</section>
+<section class="locked-panel">
+  <div class="locked-heading"><svg class="lock" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 7.5V5a3 3 0 0 1 6 0v2.5" fill="none" stroke="#1f3a5f" stroke-width="1.6"/><rect x="3" y="7.5" width="10" height="7" rx="1.2" fill="#1f3a5f"/></svg><h2>What the full report verifies</h2></div>
+  <ul class="locked-items">
+    <li>Tuition for each competitor's own age groups and schedules, compared at 12, 24, 36, and 48 months</li>
+    <li>Registration fees, deposits, and other charges</li>
+    <li>Discounts</li>
+    <li>Openings and waitlists by age group</li>
+    <li>3-K for All and Pre-K for All seats, and child care voucher acceptance</li>
+  </ul>
+  <p class="note">Axisence researchers verify each value by phone, website, or email, and every value carries its date.</p>
+</section>
+<section class="demographics">
+  <h2>Local demographics</h2>
+  {% with demographics=teaser.demographics %}
+    {% if demographics.message %}
+      <p>{{ demographics.message }}</p>
+    {% else %}
+      <p class="subheading">{{ demographics.heading }}</p>
+      <p class="note">{{ demographics.caveat }}</p>
+      <table class="figures">
+        <thead><tr><th>Figure</th><th>Estimate</th><th>Percent</th></tr></thead>
+        <tbody>
+          {% for group in demographics.groups %}{% for row in group.rows %}
+            <tr><td>{{ row.label }}</td><td>{{ row.estimate }}</td><td>{{ row.percent }}</td></tr>
+          {% endfor %}{% endfor %}
+        </tbody>
+      </table>
+      <p class="note">± is the margin of error at 90% confidence.</p>
+    {% endif %}
+  {% endwith %}
+</section>
+<section class="call-to-action">
+  <h2>Get the full report</h2>
+  <p>The full competitor analysis covers the competitors nearest your location, each verified by an Axisence researcher.</p>
+  <p class="contact-details"><a href="{{ contact.website_url }}">{{ contact.website_url }}</a> <a href="{{ contact.email_url }}">{{ contact.email }}</a> <span class="contact-phone">{{ contact.phone }}</span></p>
+</section>
+<section class="small-print">
+  <p><span class="small-print-label">Sources:</span> NY State Office of Children and Family Services, Child Care Regulated Programs (data.ny.gov cb42-qumz): {{ teaser.sources.ny_state_as_of }}. NYC Department of Health and Mental Hygiene, Active NYC Health Code Regulated Child Care Programs (NYC Open Data gy3q-4tzp): {{ teaser.sources.nyc_health_as_of }}. {{ teaser.sources.census_line }} US Census Bureau 2020 ZIP Code Tabulation Area cartographic boundaries.</p>
+  <p>Distances are straight lines, not walking or driving routes.</p>
+  {% if teaser.sources.withheld_address_line %}<p>{{ teaser.sources.withheld_address_line }}</p>{% endif %}
+</section>
+</body>
+</html>

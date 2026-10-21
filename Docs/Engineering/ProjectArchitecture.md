@@ -1,6 +1,6 @@
 # Project Architecture
 
-How Axisence runs: what runs on the Windows host and what runs in containers, the Compose services, the package map, settings, the data pipeline, the research tool, the report generator, commands, and the test and type-checking setup.
+How Axisence runs: what runs on the Windows host and what runs in containers, the Compose services, the package map, settings, the data pipeline, the research tool, the report and teaser generator, commands, and the test and type-checking setup.
 
 ## Host and container
 
@@ -41,14 +41,14 @@ GeoDjango loads the GDAL and GEOS native libraries when Django starts. Installin
 | `axisence.providers` | Providers and competitors. Models `Provider`, `Competitor`, `ReviewFlag`, and `CompetitorDecision`. `normalization.py` derives display names and matching keys; `parsing.py`, `ny_state.py`, and `nyc_health.py` parse the exports into records; `storing.py` upserts records and tracks activity; `grouping.py` places providers into competitors and refreshes competitor summaries; `geocoding.py` geocodes providers without coordinates; `review.py` holds the researcher decisions; `pipeline.py` runs one provider ingestion. The commands `ingest_ny_state_providers` and `ingest_nyc_health_providers`. Admin pages where researchers review flags, move providers, and merge competitors. |
 | `axisence.demographics` | Census data. Models `TabulationArea`, `CensusVariable`, and `CensusFigure`. `census_api.py` requests the Census Data API; `parsing.py` parses its responses; `boundaries.py` reads the boundary shapefile; `loading.py` stores figures and boundaries; `pipeline.py` runs both Census ingestions. The commands `ingest_census_demographics` and `ingest_census_boundaries`. View-only admin pages. |
 | `axisence.research` | The research tool. Models `ResearchJob`, `JobCompetitor`, `Contact`, and `Observation`. `geocoding.py` looks target addresses up; `merges.py` resolves merged competitors; `distances.py` measures and formats straight-line distances; `search.py` finds a job's competitors and saves its selection; `labels.py` builds the labels of every listed competitor and sums licensed capacities; `current_values.py` computes the current value of every slot; both also apply a report's cut-off; `job_competitors.py` lists a job's competitors and stores their distances; `jobs.py` holds the job lifecycle; `contacts.py` records and retracts contacts; `forms.py` and `call_sheet.py` hold the forms; `views.py` holds the pages inside the admin; `redaction.py` holds the logging filter for target addresses. Admin pages and their templates. It depends on `providers`, `demographics`, and `ingestion`, and none of them imports it. |
-| `axisence.reports` | The report generator. Model `Report`. `figure_lists.py` holds the Census figures a report shows per vintage; `demographics.py` checks the list and builds the demographics section; `prices.py` computes monthly equivalents and the tuition comparison; `schematic_map.py` draws the map; `competitors.py` loads the competitors and builds their texts and profiles; `content.py` builds everything a report shows; `rendering.py` renders the HTML and the PDF; `storage.py` writes report files; `generation.py` checks the rules, generates, and records a report; `views.py` holds the download; `errors.py` holds the errors. The command `generate_report`. Admin pages and the research job page's report additions. It depends on `research`, `providers`, `demographics`, and `ingestion`, and none of them imports it. |
+| `axisence.reports` | The report and teaser generator. Model `Report`. `figure_lists.py` holds the Census figures a report shows, and the subset a teaser shows, per vintage; `demographics.py` checks the list and builds the demographics section; `prices.py` computes monthly equivalents and the tuition comparison; `schematic_map.py` draws the map; `competitors.py` loads the competitors and builds their texts and profiles; `provider_runs.py` loads the provider runs a document reads and words their as-of dates; `content.py` builds everything a report shows; `teaser_content.py` builds everything a teaser shows; `rendering.py` renders the HTML and the PDF, and checks a teaser's single page; `storage.py` writes report and teaser files; `generation.py` checks the rules, generates, and records a report or a teaser; `views.py` holds the download; `errors.py` holds the errors. The commands `generate_report` and `generate_teaser`. Admin pages and the research job page's report and teaser additions. It depends on `research`, `providers`, `demographics`, and `ingestion`, and none of them imports it. |
 | `tests` | The test suite, mirroring the packages above. |
 
 Every Django app is a subpackage of `axisence`, for example `axisence.providers`, and is listed in `INSTALLED_APPS` in `config/settings.py`. `django.contrib.postgres`, which ships with Django, is installed too, for the array of provider kinds a research job searches. The admin at `/admin/` is the only URL.
 
 ## Settings and environment variables
 
-`config/settings.py` reads every environment-specific value through the readers in `config/environment.py`: `read_string`, `read_boolean`, `read_integer`, and `read_list`.
+`config/settings.py` reads every environment-specific value through the readers in `config/environment.py`: `read_string`, `read_boolean`, `read_integer`, `read_list`, and `read_https_url`, which also requires the value to start with `https://`.
 
 1. Each read is either required or has an explicit default.
 2. A variable that is unset or blank counts as unset.
@@ -69,8 +69,13 @@ Every Django app is a subpackage of `axisence`, for example `axisence.providers`
 | `POSTGRES_PASSWORD` | yes | none | Database password; also read by the PostGIS image |
 | `SOCRATA_APP_TOKEN` | no | empty | Socrata app token sent as `X-App-Token` |
 | `CENSUS_API_KEY` | no | empty | US Census Data API key; the Census commands require it |
+| `AXISENCE_WEBSITE_URL` | no | empty | Axisence's website in the teaser's call to action; must start with `https://` |
+| `AXISENCE_CONTACT_EMAIL` | no | empty | Axisence's email address in the teaser's call to action |
+| `AXISENCE_CONTACT_PHONE` | no | empty | Axisence's phone number in the teaser's call to action, printed as written |
 
-Values that are not environment-specific are fixed in code: the PostGIS database engine, `USE_TZ = True`, `TIME_ZONE = "America/New_York"`, `RAW_DATA_DIRECTORY`, the `data/raw/` directory of the repository, and `REPORT_DIRECTORY`, the git-ignored `data/private/reports/` directory that holds generated reports.
+Generating a teaser refuses while any of the three is blank; the refusal names the blank variables.
+
+Values that are not environment-specific are fixed in code: the PostGIS database engine, `USE_TZ = True`, `TIME_ZONE = "America/New_York"`, `RAW_DATA_DIRECTORY`, the `data/raw/` directory of the repository, and `REPORT_DIRECTORY`, the git-ignored `data/private/reports/` directory that holds generated reports and teasers.
 
 ## Data pipeline
 
@@ -125,7 +130,7 @@ Researchers run research jobs and record contacts in pages inside the admin, beh
 
 | Page | URL | Holds |
 | --- | --- | --- |
-| Research job | `/admin/research/researchjob/<id>/change/` | The job; the target point on GeoDjango's OpenStreetMap map widget, with its confirmation and its tabulation area; the job's competitors with their research statuses; the status buttons; the "Generate report" button and the Reports section, which the reports app adds. |
+| Research job | `/admin/research/researchjob/<id>/change/` | The job; the target point on GeoDjango's OpenStreetMap map widget, with its confirmation and its tabulation area; the job's competitors with their research statuses; the status buttons; the "Generate report" and "Generate teaser" buttons and the Reports section, which the reports app adds. |
 | Competitor search | `/admin/research/researchjob/<id>/search/` | The candidate competitors with their straight-line distances and labels, the selection, and adding a competitor by name. |
 | Call sheet | `/admin/research/contact/call-sheet/<competitor id>/` | The competitor's published data, labels, current values, and previous contacts, and the entry form of a new contact. |
 | Retraction | `/admin/research/contact/<id>/retract/` | The confirmation and the reason of a retraction, of a whole contact or, with `?observation=<id>`, of one observation. |
@@ -145,9 +150,9 @@ The data migration `research.0002_create_researchers_group` creates the group "R
 | `providers` | View and change providers, competitors, and review flags; view competitor decisions. |
 | `demographics` | View tabulation areas, Census variables, and Census figures. |
 | `research` | Add, view, and change research jobs and job competitors; add and view contacts and observations; `retract_contact`, the permission to retract contacts and observations. |
-| `reports` | View reports; `generate_report`, the permission to generate reports. |
+| `reports` | View reports; `generate_report`, the permission to generate reports; `generate_teaser`, the permission to generate teasers. |
 
-The data migration `reports.0002_grant_report_permissions_to_researchers` adds the `reports` permissions to the group, creating them first in the same way.
+The data migration `reports.0002_grant_report_permissions_to_researchers` adds the `reports` permissions to the group, creating them first in the same way. `reports.0004_grant_teaser_permission_to_researchers` adds `generate_teaser` the same way.
 
 A researcher therefore cannot manage accounts or change ingested data other than through the competitor review actions.
 
@@ -171,19 +176,19 @@ Research rows keep the competitor they were recorded for and are never rewritten
 
 ## Reports
 
-`axisence.reports` turns a client report job into its competitor analysis as a PDF. `Docs/Domain/DataSources.md` describes what a report shows and the rules behind it.
+`axisence.reports` turns a client report job into its competitor analysis as a PDF, and a prospect job into a teaser, a one-page market preview. `Docs/Domain/DataSources.md` describes what a report shows and the rules behind it.
 
 ### Generation
 
-`generation.generate_report` runs inside the request of the job page or inside the `generate_report` command; there is no queue or worker.
+`generation.generate_report` and `generation.generate_teaser` run inside the request of the job page or inside the `generate_report` or `generate_teaser` command; there is no queue or worker.
 
 1. It refuses, with a `ReportRefusedError` whose message is shown to the user, a job whose purpose is not Client report, a Draft or Cancelled job, a job that lists no competitors, and a Census figure list that no longer matches the stored labels. Researching gives a draft and Complete a final report; the kind is stored and never changes, and reports of a reopened job stay.
 2. The generation time is the report's cut-off. Research values are the current values as of the cut-off; competitors, merges, providers, operating statuses, and Census figures are read as they are.
 3. `content.build_report` builds everything the report shows as frozen dataclasses of display-ready text, in a fixed number of queries. The templates receive only these and the report's number, never a model instance, so no personal field can reach a template.
 4. The number is reserved from the primary-key sequence before rendering, because every page prints it. A failure after the reservation leaves its number unused, so numbers always increase but can skip.
-5. The PDF is written as `report-<number>.pdf` under `REPORT_DIRECTORY`, through a `.part` file renamed when complete. An existing file is never overwritten.
+5. The PDF is written as `<prefix>-<number>.pdf` under `REPORT_DIRECTORY`: `report-` for reports, `market-preview-` for teasers. It goes through a `.part` file renamed when complete, and an existing file is never overwritten.
 6. The `Report` row records the number, the job, the kind, the generation time, the generating user (none for the command), the Census vintage, the tabulation-area code, the latest succeeded run of each provider source finished by the cut-off, and the file's name, size, and SHA-256.
-7. Everything after the checks runs in a savepoint of its own, so a failure never rolls back the job page's own changes saved in the same request. Any failure removes the file, logs only the error's class name and the job number, and raises `ReportGenerationError` with "The report could not be generated."
+7. Everything after the checks runs in a savepoint of its own, so a failure never rolls back the job page's own changes saved in the same request. Any failure removes the file, logs only the error's class name and the job number, and raises `ReportGenerationError` with "The report could not be generated.", or "The teaser could not be generated." for a teaser. `generate_report` and `generate_teaser` share this flow in `generation.py`.
 
 ### Rendering
 
@@ -196,19 +201,36 @@ Research rows keep the competitor they were recorded for and are never rewritten
 
 | Page | URL | Holds |
 | --- | --- | --- |
-| Research job | `/admin/research/researchjob/<id>/change/` | "Generate report" beside the status buttons, and the Reports section listing the job's reports newest first. |
-| Reports | `/admin/reports/report/` | Every report with its job, kind, generation time, vintage, and download link, filtered by kind or job and searched by job number. |
-| Download | `/admin/reports/report/<id>/download/` | The stored PDF as an attachment; a missing file returns to the previous page with "The file of report #N is no longer stored." |
+| Research job | `/admin/research/researchjob/<id>/change/` | "Generate report" and "Generate teaser" beside the status buttons, and the Reports section listing the job's reports and teasers newest first. |
+| Reports | `/admin/reports/report/` | Every report and teaser with its job, kind, generation time, vintage, and download link, filtered by kind (Draft, Final, or Teaser) or job and searched by job number. |
+| Download | `/admin/reports/report/<id>/download/` | The stored PDF as an attachment under its stored file name; a missing file returns to the previous page with "The file of report #N is no longer stored." |
 
-1. `admin.py` unregisters the research app's `ResearchJobAdmin` and registers its subclass `ResearchJobWithReportsAdmin` in place, with a template that fills the research template's empty `job_action_buttons` block, so the research app never imports the reports app. The button posts the page, so the job's own changes, such as research statuses, are saved before the report is generated.
-2. The button shows for an eligible job to a user who can change the job and holds `reports.generate_report`. Every post checks that permission and the job's view permission again, and the service checks every rule again.
-3. `Report` has only two permissions: view, and `generate_report`. Downloading needs the view permission.
+1. `admin.py` unregisters the research app's `ResearchJobAdmin` and registers its subclass `ResearchJobWithReportsAdmin` in place, with a template that fills the research template's empty `job_action_buttons` block, so the research app never imports the reports app. Both buttons post the page, so the job's own changes, such as research statuses, are saved before the report or teaser is generated.
+2. "Generate report" shows for a job `generation.is_eligible` accepts, to a user who can change the job and holds `reports.generate_report`. "Generate teaser" shows for a job `generation.is_teaser_eligible` accepts, a Prospect job that is not Cancelled and has a confirmed point, to a user who can change the job and holds `reports.generate_teaser`; blank contact settings and an empty search do not hide it. Every post checks the button's permission and the job's view permission again, and the service checks every rule again.
+3. `Report` has three permissions: view, `generate_report`, and `generate_teaser`. Downloading needs the view permission.
 4. Reports are never changed or deleted: the admin refuses adding, changing, and deleting them for every user; `Report.save` accepts only the first insert; `Report.delete` and the queryset's `update` and `delete` raise `PermanentRecordError`; and every foreign key from a report is `PROTECT`.
 
 ### Logging
 
-1. A generated report logs "Research job <id> report <number> generated (<kind>)"; a failure logs the job number and only the class name of the error.
+1. A generated report logs "Research job <id> report <number> generated (<kind>)"; a failure logs the job number and only the class name of the error. A generated teaser logs "Research job <id> teaser <number> generated", and a failed one "Research job <id> teaser generation failed: <class name>".
 2. WeasyPrint's and fontTools' loggers write to a discarding handler in `LOGGING`, because their records can quote the HTML, CSS, or text of a report.
+
+### Teasers
+
+1. `generation.generate_teaser` refuses, in this order: a job whose purpose is not Prospect, a Cancelled job, an unconfirmed point, blank contact settings, no counted competitor, a mismatching Census figure list, and a page that is not exactly one US Letter page. A Draft job qualifies.
+2. `teaser_content.build_teaser` reads the job's search candidates, the operating statuses current at the cut-off, the competitors' active providers, the tabulation area, five Census figures, and the provider runs, in a fixed number of queries. It never reads the job's selection or any other research value.
+3. `rendering.render_one_letter_page_pdf` lays the HTML out once, checks for exactly one page of 816 by 1056 CSS pixels, and writes the PDF from that layout. Anything else raises `NotOneLetterPageError`, which becomes the refusal "The teaser does not fit on one page."; the reserved number stays unused.
+4. `templates/reports/teaser.html`, `teaser.css`, and `teaser_map.html` are the teaser's own. The organization's name and the competitor names are clamped to two lines with `line-clamp`. The footer is two running elements in the page's bottom margin. The map's marks are sized for its narrower print width and add plain dots for the competitors beyond the eighth.
+5. The teaser passes its marks' sizes, `schematic_map.MarkSizes`, to `schematic_map.build_report_map`, which then keeps the marks apart:
+    1. Numbers are placed nearest competitor first. A number stays inside the map, clear of the target, the scale bar, every other numbered position, and the numbers and lines placed before it; where its own position breaks that, it moves to a free spot on rings around the position, directions away from the target first. The nearest ring leaves 10 map units of line visible.
+    2. A moved number's line keeps clear of the numbers placed before it and of every other position, except those so near its own that its line must start beside them. It crosses no other line, and it keeps clear of the target unless it starts beside it, in which case it heads away.
+    3. Among the spots that meet all of that, up to one ring beyond the nearest, the number prefers one lying at least 10 map units nearer its own position than any other, then one that leaves every plain dot's center uncovered.
+    4. A number with no such spot is crowded. The numbers are then placed again with the crowded ones first, up to eight times, and the layout with the fewest crowded numbers is kept. A crowded number keeps the clearances of item 1 but not those of the lines, and where no spot meets them, it stays on its position. The seeded random markets of `tests/reports/test_schematic_map.py`, at the density around Brooklyn Borough Hall, keep every rule; tight clusters can crowd.
+    5. An area code sits at its area's own label point, or else at the nearest spot inside the area, where it lies inside the map clear of the target, the scale bar, the numbers, their lines and moved positions, and the codes already placed. Within three search steps of that spot, it prefers one also clear of the plain dots and the radius circle. Areas with a larger part on the map are placed first, and a code with no such spot is left out. Code sizes use Inter's widest digit and its capital height.
+    6. `teaser_map.html` reads the sizes from the map and draws the target over the dots, then the lines and their position dots, then the numbers. The legend's "Position of a moved number" entry explains the position dot and its line.
+    7. Without sizes, as for the client report's map, every number sits on its position and every code at its area's own label point.
+6. The PDF's title is "Axisence market preview <number>" and its language `en-US`. It has no other metadata field, and its outline holds only the fixed headings.
+7. Teasers are `Report` rows of kind `teaser`, numbered in the same sequence as reports and never changed or deleted. They download through the same view.
 
 ## Commands
 
@@ -228,6 +250,7 @@ Each command has exactly one form, used the same way in `CLAUDE.md`, `.claude/se
 | Load Census demographics | `docker compose run --rm web python manage.py ingest_census_demographics --vintage 2024` | container |
 | Load tabulation-area boundaries | `docker compose run --rm web python manage.py ingest_census_boundaries` | container |
 | Generate a report | `docker compose run --rm web python manage.py generate_report <job id>` | container |
+| Generate a teaser | `docker compose run --rm web python manage.py generate_teaser <job id>` | container |
 | Tests | `docker compose run --rm web pytest` | container |
 | Type check | `docker compose run --rm web mypy .` | container |
 | Lint | `uv run ruff check` | host |
@@ -242,11 +265,11 @@ Each command has exactly one form, used the same way in `CLAUDE.md`, `.claude/se
 2. Tests that need the database are marked `@pytest.mark.django_db`. A test that needs a model no production app defines declares a throwaway model in an isolated app registry (`django.test.utils.isolate_apps`) and creates its table with the schema editor inside the test's transaction, as `tests/test_postgis.py` does.
 3. mypy runs in strict mode with the django-stubs plugin, configured in `pyproject.toml`. The plugin imports the settings and models, and with them GDAL, so mypy runs only in the container. Test code may leave function definitions unannotated; their bodies are still checked. Migrations and `scratch/` are excluded. WeasyPrint ships no type information, so an override ignores its missing imports and its names are untyped; no WeasyPrint class is subclassed, which strict mode would refuse.
 4. `tests/fixtures/` holds the recorded inputs: provider export rows cut from real snapshots, with every phone number, licensee name, and home name, address, and coordinate replaced by synthetic values; trimmed Census Data API responses; a recorded batch geocoder response; and a recorded single-address geocoder response for Brooklyn Borough Hall, a public building. They hold public or synthetic data only.
-5. Autouse fixtures in `tests/conftest.py` keep every test off the network and off the real data: `http_session.build_session` and `http_session.build_lookup_session` are wrapped to mount a fake transport, `tests/ingestion/fake_transport.py`, which answers only the routes a test registers and records each request and its timeout; `RAW_DATA_DIRECTORY` and `REPORT_DIRECTORY` point at temporary directories; and both secrets are blank unless a test sets synthetic values. Every WeasyPrint call in tests uses the refusing URL fetcher, so rendering never reaches the network.
+5. Autouse fixtures in `tests/conftest.py` keep every test off the network and off the real data: `http_session.build_session` and `http_session.build_lookup_session` are wrapped to mount a fake transport, `tests/ingestion/fake_transport.py`, which answers only the routes a test registers and records each request and its timeout; `RAW_DATA_DIRECTORY` and `REPORT_DIRECTORY` point at temporary directories; both secrets are blank unless a test sets synthetic values; and the three contact settings are blank, while the `contact_settings` fixture of `tests/reports/conftest.py` sets synthetic ones on request. Every WeasyPrint call in tests uses the refusing URL fetcher, so rendering never reaches the network.
 6. `tests/demographics/shapefiles.py` writes a minimal polygon shapefile with a NAD83 projection into a zip, so the boundary tests run GDAL on synthetic areas instead of the 67 MB national file.
 7. `tests/admin_forms.py` builds the data an admin change page posts, its main form and inline formsets included, and `tests/research/call_sheet_posts.py` does the same for the call sheet.
 8. django-stubs declares `ModelAdmin`, `TabularInline`, and `ModelForm` generic, but those classes cannot be subscripted at runtime. Each `admin.py` therefore defines its parameterized base classes under `if TYPE_CHECKING:` and the plain classes otherwise, which keeps strict typing without a runtime dependency or `type: ignore` comments.
-9. Layout inspection renders reports to check how they look. `tests/reports/test_layout_inspection.py` is marked `layout_inspection`, which `addopts` deselects, so the normal run skips it. It generates four reports on synthetic data in the test database and copies their PDFs into `scratch/report-inspection/`, where they remain:
+9. Layout inspection renders reports and teasers to check how they look. `tests/reports/test_layout_inspection.py` is marked `layout_inspection`, which `addopts` deselects, so the normal run skips it. It generates four reports on synthetic data in the test database in one test, and six teasers in a parametrized test, one transaction per teaser case so no case counts another's competitors. The teaser cases are a dense market of 74 competitors with long names, a 255-character organization name, and long contact settings; one competitor; a target outside every tabulation area; no Census vintage; unpublished and incomplete capacities; and an own competitor with home-based kinds. It copies the PDFs into `scratch/report-inspection/`, the teasers as `teaser-<case>.pdf`, where they remain:
 
     ```powershell
     docker compose run --rm web pytest -m layout_inspection tests/reports/test_layout_inspection.py

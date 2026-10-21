@@ -1,8 +1,8 @@
-"""Admin pages for reports, which are listed and downloaded but never added, changed, or
-deleted, and the research job page's report button and list.
+"""Admin pages for reports and teasers, which are listed and downloaded but never added,
+changed, or deleted, and the research job page's buttons and list of them.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied
@@ -12,6 +12,7 @@ from django.urls import URLPattern, path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 
+from axisence.accounts.models import User
 from axisence.reports import generation, views
 from axisence.reports.errors import ReportError
 from axisence.reports.models import Report
@@ -40,6 +41,10 @@ _REPORT_FIELD_NAMES = (
     "sha256",
     "download_link",
 )
+
+
+class _DocumentGenerator(Protocol):
+    def __call__(self, *, job: ResearchJob, generated_by: User | None) -> Report: ...
 
 
 @admin.register(Report)
@@ -97,7 +102,8 @@ admin.site.unregister(ResearchJob)
 
 @admin.register(ResearchJob)
 class ResearchJobWithReportsAdmin(ResearchJobAdmin):
-    """The research job page with the report button and the job's reports.
+    """The research job page with the report and teaser buttons and the job's reports
+    and teasers.
 
     Registered in place of the research app's admin, so the research app never
     imports the reports app.
@@ -119,6 +125,9 @@ class ResearchJobWithReportsAdmin(ResearchJobAdmin):
                 can_generate_report=generation.is_eligible(obj)
                 and request.user.has_perm("reports.generate_report")
                 and self.has_view_permission(request, obj),
+                can_generate_teaser=generation.is_teaser_eligible(obj)
+                and request.user.has_perm("reports.generate_teaser")
+                and self.has_view_permission(request, obj),
                 job_reports=list(
                     Report.objects.filter(job=obj)
                     .order_by("-pk")
@@ -128,18 +137,30 @@ class ResearchJobWithReportsAdmin(ResearchJobAdmin):
         return super().render_change_form(request, context, add, change, form_url, obj)
 
     def response_change(self, request: HttpRequest, obj: ResearchJob) -> HttpResponse:
-        # Runs after the page's own changes are saved, so the report sees them.
-        if "_generate_report" not in request.POST:
-            return super().response_change(request, obj)
+        # Runs after the page's own changes are saved, so the document sees them.
+        if "_generate_report" in request.POST:
+            return self._generate_document(
+                request, obj, "reports.generate_report", generation.generate_report
+            )
+        if "_generate_teaser" in request.POST:
+            return self._generate_document(
+                request, obj, "reports.generate_teaser", generation.generate_teaser
+            )
+        return super().response_change(request, obj)
+
+    def _generate_document(
+        self,
+        request: HttpRequest,
+        job: ResearchJob,
+        permission: str,
+        generate: _DocumentGenerator,
+    ) -> HttpResponse:
         if not (
-            request.user.has_perm("reports.generate_report")
-            and self.has_view_permission(request, obj)
+            request.user.has_perm(permission) and self.has_view_permission(request, job)
         ):
             raise PermissionDenied
         try:
-            report = generation.generate_report(
-                job=obj, generated_by=researcher_from_request(request)
-            )
+            report = generate(job=job, generated_by=researcher_from_request(request))
         except ReportError as error:
             self.message_user(request, str(error), messages.ERROR)
         else:
@@ -147,5 +168,5 @@ class ResearchJobWithReportsAdmin(ResearchJobAdmin):
                 request, generation.generated_message(report), messages.SUCCESS
             )
         return HttpResponseRedirect(
-            reverse("admin:research_researchjob_change", args=(obj.pk,))
+            reverse("admin:research_researchjob_change", args=(job.pk,))
         )

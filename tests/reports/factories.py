@@ -1,21 +1,26 @@
-"""Factories for report-ready jobs, Census figures, provider runs, and research values,
-all synthetic.
+"""Factories for report-ready and teaser-ready jobs, report rows, staff users, contact
+settings, Census figures, provider runs, and research values, all synthetic.
 """
 
+import itertools
 from datetime import date, time, timedelta
 from decimal import Decimal
 
+from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import MultiPolygon, Polygon
+from django.utils import timezone
 
 from axisence.demographics.models import CensusFigure, CensusVariable, TabulationArea
 from axisence.ingestion.models import IngestionOutcome, IngestionRun
 from axisence.reports.figure_lists import FIGURE_LISTS
+from axisence.reports.models import Report, ReportKind
 from axisence.research.models import (
     AvailabilityStatus,
     ChargeFrequency,
     ChargeKind,
     DiscountKind,
     JobCompetitor,
+    JobPurpose,
     JobStatus,
     ObservationKind,
     OperatingStatus,
@@ -23,6 +28,7 @@ from axisence.research.models import (
     PricePeriod,
     ResearchStatus,
 )
+from tests.providers.factories import make_researcher
 from tests.research.factories import (
     BOROUGH_HALL,
     METERS_PER_MILE,
@@ -32,6 +38,19 @@ from tests.research.factories import (
     make_observation,
     point_north_of,
 )
+
+SYNTHETIC_WEBSITE_URL = "https://axisence.example/previews"
+SYNTHETIC_CONTACT_EMAIL = "previews@axisence.example"
+SYNTHETIC_CONTACT_PHONE = "(555) 010-4400"
+
+JOB_PERMISSIONS = (
+    "view_researchjob",
+    "change_researchjob",
+    "view_jobcompetitor",
+    "change_jobcompetitor",
+)
+
+_file_numbers = itertools.count(1)
 
 # Census figures in the column layout the Census Bureau publishes: base rows repeat
 # their count as the percent without a percent margin, DP03_0121 holds only a
@@ -91,6 +110,62 @@ def add_job_competitor(
         distance_meters=distance_meters,
         research_status=research_status,
     )
+
+
+def make_prospect_job(*, researcher, status=JobStatus.DRAFT, **fields):
+    values = {
+        "purpose": JobPurpose.PROSPECT,
+        "organization_name": "Synthetic Prospect",
+    }
+    values.update(fields)
+    return make_report_job(researcher=researcher, status=status, **values)
+
+
+def add_candidate(miles, name="Synthetic Near Day Care", **provider_fields):
+    """Return a competitor due north of Borough Hall, a search candidate of a job
+    there.
+    """
+    return make_located_competitor(
+        point_north_of(BOROUGH_HALL, miles), name=name, **provider_fields
+    )
+
+
+def make_teaser_ready_job(*, researcher, status=JobStatus.DRAFT, **fields):
+    """Return a prospect job with one candidate 0.2 miles away and no selection."""
+    job = make_prospect_job(researcher=researcher, status=status, **fields)
+    add_candidate(0.2)
+    return job
+
+
+def set_contact_settings(
+    settings,
+    *,
+    website_url=SYNTHETIC_WEBSITE_URL,
+    email=SYNTHETIC_CONTACT_EMAIL,
+    phone=SYNTHETIC_CONTACT_PHONE,
+):
+    settings.AXISENCE_WEBSITE_URL = website_url
+    settings.AXISENCE_CONTACT_EMAIL = email
+    settings.AXISENCE_CONTACT_PHONE = phone
+
+
+def make_staff_with(*codenames):
+    user = make_researcher("synthetic-staff")
+    user.user_permissions.add(*Permission.objects.filter(codename__in=codenames))
+    return user
+
+
+def make_report_row(job, kind=ReportKind.DRAFT, **fields):
+    values = {
+        "job": job,
+        "kind": kind,
+        "generated_at": timezone.now(),
+        "file_name": f"report-synthetic-{next(_file_numbers)}.pdf",
+        "size_bytes": 0,
+        "sha256": "0" * 64,
+    }
+    values.update(fields)
+    return Report.objects.create(**values)
 
 
 def make_area(code, center, half_size_degrees=0.01):

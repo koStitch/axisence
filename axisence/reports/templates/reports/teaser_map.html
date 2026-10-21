@@ -1,0 +1,44 @@
+{% with map=teaser.market_map sizes=teaser.market_map.mark_sizes %}
+<svg class="map" viewBox="0 0 {{ map.width }} {{ map.height }}" role="img" aria-label="Schematic map of the competitors around your location">
+<style>
+text { font-family: Inter, sans-serif; font-size: {{ sizes.text_font_size }}px; }
+.area { fill: none; stroke: #9aa3ad; stroke-width: 2.4; }
+.area-code { fill: #6b7580; text-anchor: middle; }
+.radius { fill: none; stroke: #1f3a5f; stroke-width: 4; stroke-dasharray: 16 12; }
+.dot { fill: #7f93ad; stroke: #ffffff; stroke-width: 2; }
+.target { fill: #ffffff; stroke: #1f3a5f; stroke-width: 6; }
+.leader { stroke: #1f3a5f; stroke-width: 2.5; }
+.anchor { fill: #1f3a5f; stroke: #ffffff; stroke-width: 1.5; }
+.marker { fill: #1f3a5f; stroke: #ffffff; stroke-width: 3; }
+.marker-number { fill: #ffffff; font-weight: 600; text-anchor: middle; }
+.scale { stroke: #1a1a1a; stroke-width: 6; }
+.scale-label { fill: #1a1a1a; }
+</style>
+{% for area in map.areas %}
+<path class="area" d="{{ area.path }}" fill-rule="evenodd"/>
+{% if area.is_labelled %}<text class="area-code" x="{{ area.label_x }}" y="{{ area.label_y }}">{{ area.code }}</text>{% endif %}
+{% endfor %}
+<circle class="radius" cx="{{ map.radius.x }}" cy="{{ map.radius.y }}" r="{{ map.radius.radius }}"/>
+{% for dot in map.dots %}
+<circle class="dot" cx="{{ dot.x }}" cy="{{ dot.y }}" r="{{ sizes.dot_radius }}"/>
+{% endfor %}
+<g transform="translate({{ map.target.x }}, {{ map.target.y }})">
+<rect class="target" x="-{{ sizes.target_half_side }}" y="-{{ sizes.target_half_side }}" width="{{ sizes.target_side }}" height="{{ sizes.target_side }}" transform="rotate(45)"/>
+</g>
+{# Lines and position dots go over the target, so a position beside it stays visible; numbers never cover the target. #}
+{% for marker in map.markers %}{% if marker.is_moved %}
+<line class="leader" x1="{{ marker.anchor_x }}" y1="{{ marker.anchor_y }}" x2="{{ marker.x }}" y2="{{ marker.y }}"/>
+<circle class="anchor" cx="{{ marker.anchor_x }}" cy="{{ marker.anchor_y }}" r="{{ sizes.anchor_radius }}"/>
+{% endif %}{% endfor %}
+{% for marker in map.markers %}
+<g transform="translate({{ marker.x }}, {{ marker.y }})">
+<circle class="marker" cx="0" cy="0" r="{{ sizes.marker_radius }}"/>
+<text class="marker-number" x="0" y="{{ sizes.number_baseline_offset }}">{{ marker.number }}</text>
+</g>
+{% endfor %}
+<g transform="translate({{ map.scale_bar.x }}, {{ map.scale_bar.y }})">
+<line class="scale" x1="0" y1="0" x2="{{ map.scale_bar.length }}" y2="0"/>
+<text class="scale-label" x="0" y="-{{ sizes.scale_label_raise }}">{{ map.scale_bar.label }}</text>
+</g>
+</svg>
+{% endwith %}

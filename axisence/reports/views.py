@@ -13,7 +13,9 @@ from axisence.reports.models import Report
 
 
 def download_report(request: HttpRequest, report_id: int) -> HttpResponseBase:
-    """Serve a stored report's PDF as an attachment."""
+    """Serve a stored report's or teaser's PDF as an attachment, under its stored file
+    name.
+    """
     if not request.user.has_perm("reports.view_report"):
         raise PermissionDenied
     report = get_object_or_404(Report, pk=report_id)
@@ -24,7 +26,7 @@ def download_report(request: HttpRequest, report_id: int) -> HttpResponseBase:
     return FileResponse(
         path.open("rb"),
         as_attachment=True,
-        filename=f"report-{report.pk}.pdf",
+        filename=report.file_name,
         content_type="application/pdf",
     )
 

@@ -1,31 +1,24 @@
 """Tests for the report admin pages and the research job page's report additions."""
 
-import itertools
-
 import pytest
 from django.contrib import admin
-from django.contrib.auth.models import Permission
 from django.urls import reverse
-from django.utils import timezone
 
 from axisence.reports import content, storage
 from axisence.reports.models import Report, ReportKind
 from axisence.research.models import JobPurpose, JobStatus
 from tests.admin_forms import change_form_data
-from tests.providers.factories import make_researcher
-from tests.reports.factories import make_ready_job, make_report_job
+from tests.reports.factories import (
+    JOB_PERMISSIONS,
+    make_ready_job,
+    make_report_job,
+    make_report_row,
+    make_staff_with,
+)
 
 pytestmark = pytest.mark.django_db
 
 GENERATE_BUTTON = 'name="_generate_report"'
-_file_numbers = itertools.count(1)
-
-JOB_PERMISSIONS = (
-    "view_researchjob",
-    "change_researchjob",
-    "view_jobcompetitor",
-    "change_jobcompetitor",
-)
 
 
 def _job_url(job):
@@ -34,25 +27,6 @@ def _job_url(job):
 
 def _download_url(report):
     return reverse("admin:reports_report_download", args=(report.pk,))
-
-
-def _staff_with(*codenames):
-    user = make_researcher("synthetic-staff")
-    user.user_permissions.add(*Permission.objects.filter(codename__in=codenames))
-    return user
-
-
-def _report(job, kind=ReportKind.DRAFT, **fields):
-    values = {
-        "job": job,
-        "kind": kind,
-        "generated_at": timezone.now(),
-        "file_name": f"report-synthetic-{next(_file_numbers)}.pdf",
-        "size_bytes": 0,
-        "sha256": "0" * 64,
-    }
-    values.update(fields)
-    return Report.objects.create(**values)
 
 
 BUTTON_CASES: tuple[tuple[str, dict[str, str], bool, bool], ...] = (
@@ -74,7 +48,9 @@ def test_the_button_appears_only_for_eligible_jobs_and_permitted_users(
     client, admin_user, fields, is_superuser, shown
 ):
     job = make_ready_job(researcher=admin_user, **fields)
-    client.force_login(admin_user if is_superuser else _staff_with(*JOB_PERMISSIONS))
+    client.force_login(
+        admin_user if is_superuser else make_staff_with(*JOB_PERMISSIONS)
+    )
 
     page = client.get(_job_url(job))
 
@@ -131,7 +107,7 @@ def test_a_refused_generation_shows_its_message(admin_client, admin_user):
 
 def test_a_post_without_the_permission_is_refused(client, admin_user):
     job = make_ready_job(researcher=admin_user)
-    client.force_login(_staff_with(*JOB_PERMISSIONS))
+    client.force_login(make_staff_with(*JOB_PERMISSIONS))
     url = _job_url(job)
 
     response = client.post(url, change_form_data(client, url, _generate_report="1"))
@@ -144,9 +120,9 @@ def test_the_reports_section_lists_reports_newest_first(
     admin_client, client, admin_user
 ):
     job = make_ready_job(researcher=admin_user)
-    older = _report(job, ReportKind.DRAFT)
-    newer = _report(job, ReportKind.FINAL)
-    client.force_login(_staff_with(*JOB_PERMISSIONS))
+    older = make_report_row(job, ReportKind.DRAFT)
+    newer = make_report_row(job, ReportKind.FINAL)
+    client.force_login(make_staff_with(*JOB_PERMISSIONS))
 
     page = admin_client.get(_job_url(job)).text
     without_view_permission = client.get(_job_url(job)).text
@@ -163,8 +139,8 @@ def test_the_reports_section_lists_reports_newest_first(
 
 def test_the_reports_page_renders_filters_and_searches(admin_client, admin_user):
     job = make_ready_job(researcher=admin_user)
-    report = _report(job)
-    _report(make_ready_job(researcher=admin_user))
+    report = make_report_row(job)
+    make_report_row(make_ready_job(researcher=admin_user))
 
     changelist = admin_client.get(
         reverse("admin:reports_report_changelist"),
@@ -188,7 +164,7 @@ def test_the_reports_page_renders_filters_and_searches(admin_client, admin_user)
 def test_reports_cannot_be_added_changed_or_deleted_in_the_admin(
     rf, admin_client, admin_user
 ):
-    report = _report(make_ready_job(researcher=admin_user))
+    report = make_report_row(make_ready_job(researcher=admin_user))
     request = rf.get("/admin/")
     request.user = admin_user
     model_admin = admin.site.get_model_admin(Report)
@@ -211,15 +187,17 @@ def test_reports_cannot_be_added_changed_or_deleted_in_the_admin(
 
 
 def test_the_download_serves_the_stored_pdf(admin_client, client, admin_user):
-    stored = storage.write_report_file(41, b"%PDF-synthetic")
-    report = _report(
+    stored = storage.write_report_file(
+        41, b"%PDF-synthetic", file_name_prefix=storage.REPORT_FILE_NAME_PREFIX
+    )
+    report = make_report_row(
         make_ready_job(researcher=admin_user),
         pk=41,
         file_name=stored.file_name,
         size_bytes=stored.size_bytes,
         sha256=stored.sha256,
     )
-    client.force_login(_staff_with(*JOB_PERMISSIONS))
+    client.force_login(make_staff_with(*JOB_PERMISSIONS))
 
     response = admin_client.get(_download_url(report))
     # Reading the stream to its end closes the response and its file.
@@ -236,7 +214,7 @@ def test_the_download_serves_the_stored_pdf(admin_client, client, admin_user):
 
 def test_a_missing_file_shows_a_message_and_returns(admin_client, admin_user):
     job = make_ready_job(researcher=admin_user)
-    report = _report(job)
+    report = make_report_row(job)
     job_page = f"http://testserver{_job_url(job)}"
 
     response = admin_client.get(_download_url(report), HTTP_REFERER=job_page)

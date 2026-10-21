@@ -1,5 +1,5 @@
-"""Fixtures every test gets: no network, no real secrets, no writes into data/raw/ or
-data/private/reports/.
+"""Fixtures every test gets: no network, no real secrets or contact details, no writes
+into data/raw/ or data/private/reports/.
 """
 
 import pytest
@@ -25,6 +25,15 @@ def blank_secrets(settings):
     # The container's .env may hold real values; tests set synthetic ones when needed.
     settings.CENSUS_API_KEY = ""
     settings.SOCRATA_APP_TOKEN = ""
+
+
+@pytest.fixture(autouse=True)
+def blank_contact_settings(settings):
+    # The container's .env may hold real contact details; tests set synthetic ones when
+    # needed.
+    settings.AXISENCE_WEBSITE_URL = ""
+    settings.AXISENCE_CONTACT_EMAIL = ""
+    settings.AXISENCE_CONTACT_PHONE = ""
 
 
 @pytest.fixture(autouse=True)

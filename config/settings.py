@@ -81,10 +81,16 @@ AUTH_USER_MODEL = "accounts.User"
 SOCRATA_APP_TOKEN = environment.read_string("SOCRATA_APP_TOKEN", default="")
 CENSUS_API_KEY = environment.read_string("CENSUS_API_KEY", default="")
 
+# Axisence's contact details, printed in every teaser's call to action. All three are
+# optional at startup; generating a teaser refuses while any is blank.
+AXISENCE_WEBSITE_URL = environment.read_https_url("AXISENCE_WEBSITE_URL", default="")
+AXISENCE_CONTACT_EMAIL = environment.read_string("AXISENCE_CONTACT_EMAIL", default="")
+AXISENCE_CONTACT_PHONE = environment.read_string("AXISENCE_CONTACT_PHONE", default="")
+
 # Immutable raw snapshots the pipeline writes and parses; git-ignored.
 RAW_DATA_DIRECTORY = BASE_DIR / "data" / "raw"
 
-# Generated client reports: confidential, git-ignored, and never deleted or
+# Generated client reports and teasers: confidential, git-ignored, and never deleted or
 # overwritten by the application.
 REPORT_DIRECTORY = BASE_DIR / "data" / "private" / "reports"
 
@@ -144,7 +150,8 @@ LOGGING = {
     # its parameters at DEBUG, and those parameters hold research target addresses and
     # call notes, so it stays at INFO whatever DJANGO_LOG_LEVEL says. WeasyPrint's and
     # fontTools' records can quote the HTML, CSS, or text of a report, which holds the
-    # client's organization and research values, so they are discarded.
+    # organization's name and, in client reports, research values, so they are
+    # discarded.
     "loggers": {
         "django": {"handlers": [], "level": "NOTSET"},
         "django.db.backends": {"handlers": [], "level": "INFO"},

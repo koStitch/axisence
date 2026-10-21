@@ -1,5 +1,5 @@
-"""Report files under REPORT_DIRECTORY. The application writes each one once and never
-overwrites or deletes a stored report's file.
+"""Report and teaser files under REPORT_DIRECTORY. The application writes each one once
+and never overwrites or deletes a stored file.
 """
 
 import dataclasses
@@ -7,6 +7,10 @@ import hashlib
 from pathlib import Path
 
 from django.conf import settings
+
+REPORT_FILE_NAME_PREFIX = "report"
+# A teaser reaches a prospect as an email attachment, so its name says what the page is.
+TEASER_FILE_NAME_PREFIX = "market-preview"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -21,9 +25,13 @@ def report_file_path(file_name: str) -> Path:
     return Path(settings.REPORT_DIRECTORY) / file_name
 
 
-def write_report_file(number: int, pdf: bytes) -> StoredReportFile:
-    """Store a new report's PDF, refusing to overwrite any existing file."""
-    file_name = f"report-{number}.pdf"
+def write_report_file(
+    number: int, pdf: bytes, *, file_name_prefix: str
+) -> StoredReportFile:
+    """Store a new document's PDF as <prefix>-<number>.pdf, refusing to overwrite any
+    existing file.
+    """
+    file_name = f"{file_name_prefix}-{number}.pdf"
     target = report_file_path(file_name)
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():

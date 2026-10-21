@@ -43,7 +43,7 @@ DJANGO_SETTINGS_MODULE = "config.settings"
 testpaths = ["tests"]
 addopts = ["--strict-config", "--strict-markers", "-m", "not layout_inspection"]
 markers = [
-    "layout_inspection: renders the layout inspection reports into scratch/report-inspection/; run only with -m layout_inspection",
+    "layout_inspection: renders the layout inspection reports and teasers into scratch/report-inspection/; run only with -m layout_inspection",
 ]
 
 [tool.mypy]
