@@ -16,13 +16,14 @@
       <h2>Reports</h2>
       {% if job_reports %}
         <table>
-          <thead><tr><th>Report</th><th>Kind</th><th>Generated</th><th>File</th></tr></thead>
+          <thead><tr><th>Report</th><th>Kind</th><th>Generated</th><th>Compared with</th><th>File</th></tr></thead>
           <tbody>
             {% for report in job_reports %}
               <tr>
                 <td>Report #{{ report.pk }}</td>
                 <td>{{ report.get_kind_display }}</td>
                 <td>{{ report.generated_at|date:"Y-m-d H:i" }}</td>
+                <td>{% if report.compared_report_id %}Report #{{ report.compared_report_id }}{% endif %}</td>
                 <td>{% if perms.reports.view_report %}<a href="{% url 'admin:reports_report_download' report.pk %}">Download</a>{% endif %}</td>
               </tr>
             {% endfor %}

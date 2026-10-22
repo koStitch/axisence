@@ -635,7 +635,21 @@ class ResearchJobAdmin(ResearchJobAdminBase):
         ]
 
     def competitor_search_view(self, request: HttpRequest, job_id: int) -> HttpResponse:
-        return views.competitor_search(request, self, job_id)
+        return views.competitor_search(
+            request,
+            self,
+            job_id,
+            carried_over_competitor_ids=self.carried_over_competitor_ids,
+        )
+
+    def carried_over_competitor_ids(
+        self, job: ResearchJob, chains: MergeChains
+    ) -> frozenset[int]:
+        """Return the competitors a job's first search ticks besides its nearest ones.
+
+        None here; the reports app's job admin adds a repeat job's earlier competitors.
+        """
+        return frozenset()
 
 
 @admin.register(JobCompetitor)

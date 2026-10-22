@@ -22,10 +22,16 @@ from axisence.providers.models import (
     ProviderSource,
 )
 from axisence.reports import generation
+from axisence.research import contacts
+from axisence.research.distances import distances_from
 from axisence.research.models import (
     AvailabilityStatus,
+    ChargeFrequency,
+    ChargeKind,
     ContactMethod,
+    DiscountKind,
     JobStatus,
+    Observation,
     ObservationKind,
     OperatingStatus,
     PricePeriod,
@@ -588,3 +594,267 @@ def test_render_the_inspection_teasers(settings, case):
     target = target_directory / f"teaser-{case}.pdf"
     shutil.copyfile(Path(settings.REPORT_DIRECTORY) / teaser.file_name, target)
     assert target.stat().st_size == teaser.size_bytes
+
+
+def _definition(competitor, kind, name):
+    return Observation.objects.get(contact__competitor=competitor, kind=kind, name=name)
+
+
+def _later_contact(competitor, researcher, job):
+    # Entered now, after the predecessor's report was generated.
+    return make_contact(
+        competitor=competitor,
+        researcher=researcher,
+        job=job,
+        contact_date=date(2026, 10, 20),
+    )
+
+
+def _copy_prices_and_availability(competitor, researcher, job):
+    contact = _later_contact(competitor, researcher, job)
+    for observation in Observation.objects.filter(
+        contact__competitor=competitor,
+        kind__in=(ObservationKind.PRICE, ObservationKind.AVAILABILITY),
+    ):
+        make_observation(
+            contact=contact,
+            kind=observation.kind,
+            age_group=observation.age_group,
+            schedule=observation.schedule,
+            amount=observation.amount,
+            price_period=observation.price_period,
+            includes_discounts=observation.includes_discounts,
+            availability_status=observation.availability_status,
+            earliest_start_on=observation.earliest_start_on,
+            expected_wait_months=observation.expected_wait_months,
+        )
+
+
+def _change_values(competitors, researcher, job):
+    """Record a change of every class on the first ten continuing competitors."""
+    rising, redefined, opening, declining, charging, deposit, retracted = competitors[
+        :7
+    ]
+    contact = _later_contact(rising, researcher, job)
+    full_time = _definition(rising, ObservationKind.SCHEDULE, "Full time")
+    for name, monthly in (("Infants", 2050), ("Toddlers", 1850), ("Preschool", 1650)):
+        add_price(
+            contact,
+            _definition(rising, ObservationKind.AGE_GROUP, name),
+            full_time,
+            str(monthly),
+            PricePeriod.MONTHLY,
+        )
+    contact = _later_contact(redefined, researcher, job)
+    make_observation(
+        contact=contact,
+        kind=ObservationKind.AGE_GROUP_RETIREMENT,
+        age_group=_definition(redefined, ObservationKind.AGE_GROUP, "Toddlers"),
+    )
+    (twos,), _ = add_definitions(contact, age_groups=[("Twos", 24, 36)])
+    add_price(
+        contact,
+        twos,
+        _definition(redefined, ObservationKind.SCHEDULE, "Full time"),
+        "1790",
+        PricePeriod.MONTHLY,
+    )
+    make_observation(
+        contact=_later_contact(opening, researcher, job),
+        kind=ObservationKind.AVAILABILITY,
+        age_group=_definition(opening, ObservationKind.AGE_GROUP, "Toddlers"),
+        availability_status=AvailabilityStatus.OPENINGS,
+        earliest_start_on=date(2027, 1, 5),
+    )
+    make_observation(
+        contact=_later_contact(declining, researcher, job),
+        kind=ObservationKind.DISCOUNT,
+        discount_kind=DiscountKind.SIBLING,
+        is_none_offered=True,
+    )
+    make_observation(
+        contact=_later_contact(charging, researcher, job),
+        kind=ObservationKind.OTHER_CHARGE,
+        charge_kind=ChargeKind.REGISTRATION,
+        amount=Decimal(150),
+        charge_frequency=ChargeFrequency.ONCE,
+    )
+    make_observation(
+        contact=_later_contact(deposit, researcher, job),
+        kind=ObservationKind.OTHER_CHARGE,
+        charge_kind=ChargeKind.DEPOSIT,
+        months_of_tuition=Decimal(1),
+        charge_frequency=ChargeFrequency.ONCE,
+        description="refundable before the first day",
+    )
+    contacts.retract_observation(
+        observation=Observation.objects.get(
+            contact__competitor=retracted,
+            kind=ObservationKind.PRICE,
+            age_group__name="Infants",
+            schedule__name="Full time",
+        ),
+        researcher=researcher,
+        reason="Synthetic mistake",
+    )
+    for competitor in competitors[7:10]:
+        _copy_prices_and_availability(competitor, researcher, job)
+
+
+def _repeat_dense_market_job(researcher):
+    predecessor = make_report_job(
+        researcher=researcher,
+        status=JobStatus.COMPLETE,
+        organization_name="Synthetic Repeat Client",
+    )
+    competitors = []
+    for index in range(32):
+        competitor = _listed(
+            predecessor,
+            0.08 + index * 0.027,
+            index * 47,
+            "Synthetic Long Named Early Learning Center and Family Enrichment "
+            f"Academy Number {index + 1} of Brooklyn Heights",
+            total_capacity=20 + index * 7,
+        )
+        _price_competitor(competitor, researcher, predecessor, 1500 + index * 35)
+        competitors.append(competitor)
+    earlier = make_contact(
+        competitor=competitors[3],
+        researcher=researcher,
+        job=predecessor,
+        contact_date=date(2026, 10, 7),
+    )
+    make_observation(
+        contact=earlier,
+        kind=ObservationKind.DISCOUNT,
+        discount_kind=DiscountKind.SIBLING,
+        percent=Decimal(10),
+    )
+    make_observation(
+        contact=make_contact(
+            competitor=competitors[4],
+            researcher=researcher,
+            job=predecessor,
+            contact_date=date(2026, 10, 7),
+        ),
+        kind=ObservationKind.OTHER_CHARGE,
+        charge_kind=ChargeKind.REGISTRATION,
+        is_none_offered=True,
+    )
+    # Listed by its regulator before the earlier report, which did not include it.
+    newly_included = make_located_competitor(
+        _point_at(BOROUGH_HALL, 0.85, 205), name="Synthetic Newly Included Center"
+    )
+    generation.generate_report(job=predecessor, generated_by=None)
+
+    repeat_job = make_report_job(
+        researcher=researcher,
+        status=JobStatus.COMPLETE,
+        organization_name="Synthetic Repeat Client",
+        predecessor=predecessor,
+        search_radius_miles=Decimal("1.50"),
+        provider_kinds=[
+            ProviderKind.DAY_CARE_CENTER,
+            ProviderKind.SMALL_DAY_CARE_CENTER,
+            ProviderKind.GROUP_FAMILY_DAY_CARE,
+        ],
+        target_point=_point_at(BOROUGH_HALL, 0.3, 0),
+    )
+    continuing = competitors[:28]
+    merged, closed, delisted, _not_selected = competitors[28:]
+    Provider.objects.filter(competitor=merged).update(competitor=continuing[12])
+    Competitor.objects.filter(pk=merged.pk).update(
+        retired_at=timezone.now(), merged_into=continuing[12], is_active=False
+    )
+    _report_status(
+        closed, researcher, OperatingStatus.PERMANENTLY_CLOSED, date(2026, 10, 19)
+    )
+    Provider.objects.filter(competitor=delisted).update(missing_since=timezone.now())
+    Competitor.objects.filter(pk=delisted.pk).update(is_active=False)
+    newly_listed = [
+        make_located_competitor(
+            _point_at(BOROUGH_HALL, miles, bearing),
+            name=name,
+            kind=ProviderKind.GROUP_FAMILY_DAY_CARE,
+            total_capacity=12,
+        )
+        for miles, bearing, name in (
+            (0.5, 75, "Synthetic Newly Listed Group Family Day Care"),
+            (1.1, 290, "Synthetic Second Newly Listed Group Family Day Care"),
+        )
+    ]
+    selected = [*continuing, closed, newly_included, *newly_listed]
+    distances = distances_from(
+        repeat_job.target_point, [competitor.pk for competitor in selected]
+    )
+    for competitor in selected:
+        add_job_competitor(
+            repeat_job, competitor, distance_meters=distances[competitor.pk]
+        )
+    _change_values(continuing, researcher, repeat_job)
+    return repeat_job
+
+
+def _repeat_nothing_verified_again_job(researcher):
+    predecessor = make_report_job(
+        researcher=researcher,
+        status=JobStatus.COMPLETE,
+        organization_name="Synthetic Unverified Repeat Client",
+    )
+    competitors = []
+    for index, miles in enumerate((0.2, 0.35, 0.5, 0.65)):
+        competitor = _listed(
+            predecessor, miles, index * 90, f"Synthetic Earlier Competitor {index + 1}"
+        )
+        _price_competitor(competitor, researcher, predecessor, 1700 + index * 80)
+        competitors.append((competitor, miles))
+    generation.generate_report(job=predecessor, generated_by=None)
+    repeat_job = make_report_job(
+        researcher=researcher,
+        organization_name="Synthetic Unverified Repeat Client",
+        predecessor=predecessor,
+    )
+    for competitor, miles in competitors:
+        add_job_competitor(
+            repeat_job,
+            competitor,
+            distance_meters=miles * METERS_PER_MILE,
+            research_status=ResearchStatus.TO_DO,
+        )
+    return repeat_job
+
+
+REPEAT_CASES = {
+    "repeat-dense-market": _repeat_dense_market_job,
+    "repeat-nothing-verified-again": _repeat_nothing_verified_again_job,
+}
+
+
+# One test per case, so each runs in a transaction of its own.
+@pytest.mark.layout_inspection
+@pytest.mark.parametrize("case", list(REPEAT_CASES))
+def test_render_the_inspection_repeat_reports(settings, case):
+    researcher = make_researcher()
+    _make_area_grid()
+    make_census_2024(TabulationArea.objects.get(code="11201"))
+    now = timezone.now()
+    make_provider_run(
+        IngestionSource.NY_STATE_PROVIDERS,
+        finished_at=now - timedelta(days=1),
+        publisher_rows_updated_at=now - timedelta(days=1, hours=6),
+    )
+    make_provider_run(
+        IngestionSource.NYC_HEALTH_PROVIDERS, finished_at=now - timedelta(days=2)
+    )
+    target_directory = Path(settings.BASE_DIR) / "scratch" / "report-inspection"
+    target_directory.mkdir(parents=True, exist_ok=True)
+
+    report = generation.generate_report(
+        job=REPEAT_CASES[case](researcher), generated_by=None
+    )
+
+    assert report.compared_report is not None
+    target = target_directory / f"{case}.pdf"
+    shutil.copyfile(Path(settings.REPORT_DIRECTORY) / report.file_name, target)
+    assert target.stat().st_size == report.size_bytes

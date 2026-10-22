@@ -1,0 +1,20 @@
+{% extends "admin/reports/research_job_change_form.html" %}
+
+{% block job_action_buttons %}
+  {{ block.super }}
+  {% if can_prepare_repeat_job %}
+    <button type="submit" class="button" name="_prepare_repeat_job" value="1">Prepare repeat job</button>
+  {% endif %}
+{% endblock %}
+
+{% block after_field_sets %}
+  {{ block.super }}
+  {% if predecessor_id or repeated_by or serving %}
+    <fieldset class="module aligned">
+      <h2>Repeats</h2>
+      {% if predecessor_id %}<div class="form-row"><p>Repeats: <a href="{% url 'admin:research_researchjob_change' predecessor_id %}">research job #{{ predecessor_id }}</a></p></div>{% endif %}
+      {% if repeated_by %}<div class="form-row"><p>Repeated by:</p><ul>{% for repeat in repeated_by %}<li><a href="{% url 'admin:research_researchjob_change' repeat.pk %}">research job #{{ repeat.pk }}</a> ({{ repeat.get_status_display }})</li>{% endfor %}</ul></div>{% endif %}
+      {% if serving %}<div class="form-row"><p>Subscription: <a href="{% url 'admin:subscriptions_subscription_change' serving.subscription_id %}">subscription #{{ serving.subscription_id }}</a>, due {{ serving.due_date|date:"Y-m-d" }}</p></div>{% endif %}
+    </fieldset>
+  {% endif %}
+{% endblock %}

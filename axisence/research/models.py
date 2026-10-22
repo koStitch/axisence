@@ -2,7 +2,7 @@
 
 Contacts and observations are append-only: nothing changes or deletes them except
 retraction, which records who retracted them, when, and why. Research jobs are never
-deleted.
+deleted. A repeat job records the job it repeats, once, when it is prepared.
 """
 
 import dataclasses
@@ -314,6 +314,16 @@ class ResearchJob(models.Model):
         blank=True,
         related_name="assigned_research_jobs",
     )
+    # The job this one repeats, recorded once when a repeat job is prepared and never
+    # changed; blank for every job created any other way.
+    predecessor = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        editable=False,
+        related_name="repeat_jobs",
+    )
 
     objects = ResearchJobQuerySet.as_manager()
 
@@ -355,6 +365,16 @@ class ResearchJob(models.Model):
             models.CheckConstraint(
                 condition=Q(provider_kinds__len__gte=1),
                 name="research_job_has_provider_kinds",
+            ),
+            models.CheckConstraint(
+                condition=~Q(predecessor=F("id")),
+                name="research_job_not_its_own_predecessor",
+            ),
+            # A job is followed by at most one repeat job that is not Cancelled.
+            models.UniqueConstraint(
+                fields=("predecessor",),
+                condition=~Q(status="cancelled"),
+                name="one_open_repeat_per_research_job",
             ),
         )
 
@@ -933,16 +953,17 @@ class Observation(AppendOnlyRecord):
     def is_retracted(self) -> bool:
         return self.retracted_at is not None
 
+    def age_range_summary(self) -> str:
+        """Describe an age group's limits in months, or its youngest age and older."""
+        if self.oldest_age_months is None:
+            return f"{self.youngest_age_months} months and older"
+        return f"{self.youngest_age_months}{_EN_DASH}{self.oldest_age_months} months"
+
     def value_summary(self) -> str:
         """Describe the value in one line, for lists, the call sheet, and choices."""
         match self.kind:
             case ObservationKind.AGE_GROUP:
-                if self.oldest_age_months is None:
-                    return f"{self.name}, {self.youngest_age_months} months and older"
-                return (
-                    f"{self.name}, {self.youngest_age_months}{_EN_DASH}"
-                    f"{self.oldest_age_months} months"
-                )
+                return f"{self.name}, {self.age_range_summary()}"
             case ObservationKind.SCHEDULE:
                 summary = f"{self.name}, {self.days_per_week} days per week"
                 if self.hours_per_day is not None:
@@ -953,9 +974,9 @@ class Observation(AppendOnlyRecord):
             case ObservationKind.SCHEDULE_RETIREMENT:
                 return f"Retires schedule {_name_of(self.schedule)}"
             case ObservationKind.PRICE:
-                return self._price_summary()
+                return self._price_summary(with_slot=True)
             case ObservationKind.AVAILABILITY:
-                return self._availability_summary()
+                return self._availability_summary(with_slot=True)
             case ObservationKind.DISCOUNT:
                 return self._discount_or_charge_summary(
                     self.get_discount_kind_display()
@@ -964,16 +985,29 @@ class Observation(AppendOnlyRecord):
                 return self._discount_or_charge_summary(self.get_charge_kind_display())
         return self._single_fact_summary()
 
-    def _price_summary(self) -> str:
+    def slot_value_summary(self) -> str:
+        """Describe the value without the age group and schedule its slot already
+        names.
+        """
+        match self.kind:
+            case ObservationKind.PRICE:
+                return self._price_summary(with_slot=False)
+            case ObservationKind.AVAILABILITY:
+                return self._availability_summary(with_slot=False)
+        return self.value_summary()
+
+    def _price_summary(self, *, with_slot: bool) -> str:
         summary = f"{_dollars(self.amount)} {self.get_price_period_display().lower()}"
         if self.includes_discounts:
             summary += " including discounts"
+        if not with_slot:
+            return summary
         return f"{summary} for {_name_of(self.age_group)} on {_name_of(self.schedule)}"
 
-    def _availability_summary(self) -> str:
-        summary = (
-            f"{self.get_availability_status_display()} for {_name_of(self.age_group)}"
-        )
+    def _availability_summary(self, *, with_slot: bool) -> str:
+        summary = self.get_availability_status_display()
+        if with_slot:
+            summary += f" for {_name_of(self.age_group)}"
         if self.earliest_start_on is not None:
             summary += f", earliest start {self.earliest_start_on.isoformat()}"
         if self.expected_wait_months is not None:

@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "axisence.demographics",
     "axisence.research",
     "axisence.reports",
+    "axisence.subscriptions",
 ]
 
 MIDDLEWARE = [

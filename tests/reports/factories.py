@@ -1,5 +1,6 @@
-"""Factories for report-ready and teaser-ready jobs, report rows, staff users, contact
-settings, Census figures, provider runs, and research values, all synthetic.
+"""Factories for report-ready and teaser-ready jobs, report rows and their listed
+competitors, staff users, contact settings, Census figures, provider runs, and
+research values, all synthetic.
 """
 
 import itertools
@@ -13,7 +14,12 @@ from django.utils import timezone
 from axisence.demographics.models import CensusFigure, CensusVariable, TabulationArea
 from axisence.ingestion.models import IngestionOutcome, IngestionRun
 from axisence.reports.figure_lists import FIGURE_LISTS
-from axisence.reports.models import Report, ReportKind
+from axisence.reports.models import (
+    ListedCompetitor,
+    Report,
+    ReportKind,
+    ReportListing,
+)
 from axisence.research.models import (
     AvailabilityStatus,
     ChargeFrequency,
@@ -166,6 +172,35 @@ def make_report_row(job, kind=ReportKind.DRAFT, **fields):
     }
     values.update(fields)
     return Report.objects.create(**values)
+
+
+def make_listed_report(job, *, kind=ReportKind.FINAL, main=(), closed=(), **fields):
+    """Return a report row that lists the main competitors numbered from 1 and the
+    closed ones without numbers.
+    """
+    report = make_report_row(job, kind, **fields)
+    ListedCompetitor.objects.bulk_create(
+        [
+            *(
+                ListedCompetitor(
+                    report=report,
+                    competitor=competitor,
+                    listing=ReportListing.MAIN,
+                    number=number,
+                )
+                for number, competitor in enumerate(main, start=1)
+            ),
+            *(
+                ListedCompetitor(
+                    report=report,
+                    competitor=competitor,
+                    listing=ReportListing.REPORTED_CLOSED,
+                )
+                for competitor in closed
+            ),
+        ]
+    )
+    return report
 
 
 def make_area(code, center, half_size_degrees=0.01):

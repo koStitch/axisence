@@ -3,7 +3,7 @@ store the file, and record it.
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from typing import Protocol
 
@@ -12,12 +12,19 @@ from django.utils import timezone
 
 from axisence.accounts.models import User
 from axisence.ingestion.models import IngestionRun
-from axisence.reports import content, rendering, storage, teaser_content
+from axisence.reports import (
+    content,
+    listed_competitors,
+    rendering,
+    storage,
+    teaser_content,
+)
 from axisence.reports.errors import (
     NotOneLetterPageError,
     ReportGenerationError,
     ReportRefusedError,
 )
+from axisence.reports.listed_competitors import ListedCompetitorRecord
 from axisence.reports.models import Report, ReportKind
 from axisence.research.jobs import UNCONFIRMED_POINT_MESSAGE
 from axisence.research.models import JobPurpose, JobStatus, ResearchJob
@@ -46,6 +53,12 @@ class _RecordedSources(Protocol):
 
     @property
     def nyc_health_provider_run(self) -> IngestionRun | None: ...
+
+    @property
+    def compared_report(self) -> Report | None: ...
+
+    @property
+    def listed_competitors(self) -> Sequence[ListedCompetitorRecord]: ...
 
 
 def report_kind_for(job: ResearchJob) -> ReportKind:
@@ -198,6 +211,7 @@ def _generate[BuiltT: _RecordedSources](
                 kind=kind,
                 generated_at=cut_off,
                 generated_by=generated_by,
+                compared_report=built.compared_report,
                 census_vintage=built.census_vintage,
                 tabulation_area_code=built.tabulation_area_code,
                 ny_state_provider_run=built.ny_state_provider_run,
@@ -205,6 +219,9 @@ def _generate[BuiltT: _RecordedSources](
                 file_name=stored_file.file_name,
                 size_bytes=stored_file.size_bytes,
                 sha256=stored_file.sha256,
+            )
+            listed_competitors.store_listed_competitors(
+                report, built.listed_competitors
             )
     except ReportRefusedError:
         raise

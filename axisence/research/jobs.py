@@ -1,7 +1,9 @@
 """Research job lifecycle: creation, the target lookup and confirmation, and status.
 
 The target and the search settings change only while a job is Draft. Every change of
-a Draft job's point clears its confirmation and recomputes the stored distances.
+a Draft job's point clears its confirmation and recomputes the stored distances. A job
+is followed by at most one repeat job that is not Cancelled, and a line of repeat jobs
+only ever shortens from its end.
 """
 
 import logging
@@ -16,7 +18,7 @@ from axisence.accounts.models import User
 from axisence.demographics.models import TabulationArea
 from axisence.ingestion import http_session
 from axisence.providers.models import Competitor
-from axisence.research import geocoding
+from axisence.research import geocoding, signals
 from axisence.research.job_competitors import (
     load_displayed_job_competitors,
     recompute_distances,
@@ -233,6 +235,33 @@ def change_status(*, job: ResearchJob, status: str, chains: MergeChains) -> None
         for displayed in load_displayed_job_competitors(stored, chains)
     ):
         raise ResearchJobError("Set every competitor to Done or Unreachable first.")
+    if target == JobStatus.CANCELLED:
+        repeat_id = _open_repeat_id(stored.pk)
+        if repeat_id is not None:
+            raise ResearchJobError(
+                f"Research job #{repeat_id} repeats this job. Cancel that job first."
+            )
+    if (
+        target == JobStatus.RESEARCHING
+        and current == JobStatus.CANCELLED
+        and stored.predecessor_id is not None
+    ):
+        # Locked, so a reopening never passes together with a preparation or a
+        # cancelling of the same predecessor.
+        predecessor = ResearchJob.objects.select_for_update().get(
+            pk=stored.predecessor_id
+        )
+        if predecessor.status == JobStatus.CANCELLED:
+            raise ResearchJobError(
+                f"Research job #{predecessor.pk} is Cancelled. Reopen that job first."
+            )
+        repeat_id = _open_repeat_id(predecessor.pk)
+        if repeat_id is not None:
+            raise ResearchJobError(
+                f"Research job #{repeat_id} already repeats research job "
+                f"#{predecessor.pk}."
+            )
+    signals.job_status_changing.send(sender=ResearchJob, job=stored, status=target)
     stored.status = target
     stored.save(update_fields=("status",))
     job.status = target
@@ -275,6 +304,16 @@ def tabulation_area_code(point: Point) -> str | None:
         TabulationArea.objects.filter(boundary__contains=point)
         .order_by("code")
         .values_list("code", flat=True)
+        .first()
+    )
+
+
+def _open_repeat_id(job_id: int) -> int | None:
+    return (
+        ResearchJob.objects.filter(predecessor_id=job_id)
+        .exclude(status=JobStatus.CANCELLED)
+        .order_by("pk")
+        .values_list("pk", flat=True)
         .first()
     )
 

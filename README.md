@@ -271,7 +271,7 @@ Each researcher has an account of their own.
 4. Tick "Staff status".
 5. Under Groups, move "Researchers" to "Chosen groups", then choose "Save".
 
-Expected: the researcher logs in with that account and sees Research jobs, Job competitors, Contacts, and Observations under Research; the provider, competitor, and review flag pages with their review actions; the demographics pages read-only; and Reports under Reports, with "Generate report" on the pages of eligible client report jobs and "Generate teaser" on the pages of eligible prospect jobs.
+Expected: the researcher logs in with that account and sees Research jobs, Job competitors, Contacts, and Observations under Research; the provider, competitor, and review flag pages with their review actions; the demographics pages read-only; Reports under Reports, with "Generate report" on the pages of eligible client report jobs and "Generate teaser" on the pages of eligible prospect jobs; and Subscriptions under Subscriptions, read-only, with "Prepare repeat job" on running subscriptions, and "Prepare repeat job" on the pages of Complete client report jobs that can be repeated.
 
 ### Running a research job
 
@@ -287,13 +287,14 @@ Expected: the researcher logs in with that account and sees Research jobs, Job c
 
 ### Calls
 
-1. In the job's list of competitors, choose "Call sheet" beside a competitor. Expected: its published data, labels, current values with their dates and methods, previous contacts, and the entry form, with a notice that the contact will be linked to the job.
+1. In the job's list of competitors, choose "Call sheet" beside a competitor. Expected: its published data, labels, current values with their dates and methods, the history of its values, previous contacts, and the entry form, with a notice that the contact will be linked to the job.
 2. Enter the contact date, the method, the role of the person spoken to, and any notes. Notes never hold the name, email, or phone number of a person.
 3. Every pre-filled value starts "Not covered". Choose "Confirmed" when the value still holds, or "New value" and enter the value found. A changed value left "Not covered" or "Confirmed" is refused.
 4. Enter new age groups and schedules in their "New" rows, and new prices, availability, discounts, and other charges in the numbered rows of their sections. A new price or availability row can refer to "New age group A" or "New schedule A" of the same contact. Tick "Retire" beside an age group or schedule the provider no longer uses.
-5. Choose "Save contact". Expected: "Contact #N recorded with M observations."
-6. Back on the job, set the competitor's research status to In progress, Done, or Unreachable, and choose "Save and continue editing".
-7. Record a closure as the operating status "Temporarily closed" or "Permanently closed". It labels the competitor wherever it is listed; the provider data stays as its regulator publishes it.
+5. A new age group or schedule that matches a current one, by its name ignoring case and extra spaces and by its limits or its days and hours, is refused with a message naming the current one. Choose that definition in the row instead, so its prices keep one history.
+6. Choose "Save contact". Expected: "Contact #N recorded with M observations."
+7. Back on the job, set the competitor's research status to In progress, Done, or Unreachable, and choose "Save and continue editing".
+8. Record a closure as the operating status "Temporarily closed" or "Permanently closed". It labels the competitor wherever it is listed; the provider data stays as its regulator publishes it.
 
 ### Completing a job
 
@@ -309,7 +310,9 @@ Expected: the researcher logs in with that account and sees Research jobs, Job c
 
 ### History
 
-The call sheet's "Full history" link lists every observation of the competitor and of the competitors merged into it, newest contact first.
+1. The call sheet's "History", between "Current values" and "Previous contacts", lists every price, availability, discount, and other charge of the competitor and of the competitors merged into it, slots no longer current included.
+2. Each row is a run of one stated value, with its first recorded and its last confirmed contact and the number of contacts. A retired age group or schedule shows under its slots. Retracted values are left out.
+3. The call sheet's "Full history" link lists every observation, newest contact first, retracted ones included.
 
 ## Reports
 
@@ -435,6 +438,84 @@ A teaser can be generated again at any time. Each generation gets a new number a
 
 1. Open the PDF and check the nearest competitors. A prospect that is itself a listed provider appears as its own nearest competitor unless the job names it as "Own competitor".
 2. The teaser names the prospect's organization and, through its map and distances, shows the prospect's location. Send it only to that prospect, from outside the application.
+
+## Repeat reports
+
+A repeat report reports again on the same client and target, and states what changed since the last final report the client received. It comes from a repeat job, prepared from the earlier job. A job and the repeat jobs that follow it form a line: a job is followed by at most one repeat job that is not Cancelled.
+
+### Preparing a repeat job
+
+1. Under Research, open Research jobs and then the Complete client report job.
+2. Choose "Prepare repeat job" beside the status buttons. Changes made on the page are saved first. Expected: the new Draft job opens with "Research job #`<new>` prepared as a repeat of research job #`<earlier>`.", or, when the earlier job is the latest job of a running subscription, the same message with "for subscription #`<S>`, due `<YYYY-MM-DD>`" before its full stop, and shows "Repeats: research job #`<earlier>`". The new job copies the organization, the address, the pin, the lookup's outcome, the search settings, the own competitor, and the assigned researcher.
+3. Check and confirm the pin: tick "Confirm the target point" and choose "Save and continue editing". While the job is Draft, the target and the search settings can still change, and a changed address is looked up again.
+4. Choose "Search competitors". Expected: the earlier report's competitors that are still active and not reported permanently closed are ticked with the usual nearest ones, and those outside the results appear under "Selected competitors outside these results". Choose "Save selection".
+5. Run the job as any other, from "Start research" on.
+
+### Generating and reading a repeat report
+
+Choose "Generate report" as usual. Expected: the cover reads "Follows report #`<N>` of `<date>`"; the job's Reports section shows "Report #`<N>`" under "Compared with"; and the section "Changes since report #`<N>`" follows the summary, with:
+
+1. the search settings that changed, if any;
+2. the competitors added and gone, each with its reason;
+3. each competitor in both reports, with its newest contact since report #`<N>`, a table of its values that changed, are new, or ended, and the counts of values re-confirmed unchanged and not re-checked;
+4. notes on how values are compared.
+
+### When preparing or a status change is refused
+
+| Message | Meaning and what to do |
+| --- | --- |
+| Only client report jobs can be repeated. | A prospect job gets teasers, not repeats. |
+| Only a Complete job can be repeated. | Finish the job and choose "Mark complete". |
+| The job has no final report to compare against. | Choose "Generate report" on the Complete job. This also covers a job whose final reports predate the recording of listed competitors. |
+| Research job #`<N>` already repeats this job. | Continue research job #`<N>`, or cancel it first. |
+| Subscription #`<S>` has no due date left. | Move or clear the subscription's end date, or add a new subscription once it has ended. |
+| Subscription #`<S>` has ended. | Add a new subscription starting from the latest job of the line. |
+| Research job #`<N>` repeats this job. Cancel that job first. | Cancel research job #`<N>` first. |
+| Research job #`<N>` already repeats research job #`<P>`. | Continue research job #`<N>`, or cancel it first. |
+| Research job #`<P>` is Cancelled. Reopen that job first. | Reopen research job #`<P>` first. |
+| Research job #`<N>` serves due date `<date>` of subscription #`<S>`. | Continue research job #`<N>`. |
+| Due date `<date>` lies after the end date of subscription #`<S>`. | Move the end date to that due date or later first. |
+
+## Subscriptions
+
+A subscription records a client's standing order for a repeat report every quarter, twice a year, or every year, starting from one job. Its due dates are fixed from its start date. Nothing happens because a date arrives: the Subscriptions list is the reminder, and preparing each repeat job stays the user's act.
+
+### Adding a subscription
+
+1. Log in at http://127.0.0.1:8000/admin/ as the administrator. Under Subscriptions, open Subscriptions and choose "Add subscription".
+2. Choose the starting job: a Complete client report job with a final report, the latest job of its line. Choose the cadence, the start date, usually the day the starting job's final report reached the client, and an optional end date.
+3. Choose "Save and continue editing". Expected: the subscription's page opens with "The subscription “Subscription #`<S>`” was added successfully. You may edit it again below.", and shows its next due date.
+
+| Message | Meaning and what to do |
+| --- | --- |
+| The starting job must be a Complete client report job with a final report to compare against. | Choose a Complete client report job. When it has no final report since listed competitors were recorded, choose "Generate report" on it first. |
+| Research job #`<N>` repeats this job. Start the subscription from the latest job of its line. | Start from the latest job of the line, such as research job #`<N>`. |
+| This job already belongs to subscription #`<S>`. | Set an end date on subscription #`<S>`, and add the new subscription once that date has passed. |
+| The end date cannot be before the start date. | Correct either date. |
+| The end date cannot be before `<date>`, the latest due date served by a job that is not Cancelled. | Set the end date on or after that date. |
+| A job of this subscription belongs to subscription #`<S>`. | Keep this subscription ended, or end subscription #`<S>` first. |
+
+### What can change later
+
+1. The starting job, the cadence, and the start date change only until the first repeat job is prepared for a due date. Afterwards the page shows them read-only.
+2. The end date changes at any time, but never to a date before the latest due date that a job that is not Cancelled serves, and never so that an ended subscription runs again while another running subscription covers one of its jobs.
+3. To pause a subscription or change its cadence, set an end date. Once it has passed, add a new subscription from the latest job of the line.
+
+### Due soon and overdue
+
+1. The Subscriptions list orders subscriptions by their next due date, the earliest due date not yet delivered, with subscriptions without one last. A due date is delivered once a repeat job serving it, and not Cancelled, has a final report.
+2. The "Due state" filter's "Overdue" lists the subscriptions whose next due date has passed, and "Due soon" those due today or within the next 14 days.
+3. A subscription's page lists its due dates up to today, those a job serves, and the next one, each with its research job and status and its final report, or "Not prepared".
+
+### Preparing a subscription's repeat job
+
+1. On the subscription's page, choose "Prepare repeat job". Expected: the new Draft job opens with "Research job #`<new>` prepared as a repeat of research job #`<latest>` for subscription #`<S>`, due `<YYYY-MM-DD>`.".
+2. Continue as in "Preparing a repeat job" from step 3.
+3. Cancelling a repeat job frees its due date for the next preparation.
+
+### Sending a report
+
+The application never sends a report or a reminder. Sending the final report to the client is always the user's own act, from outside the application.
 
 ## Documentation
 

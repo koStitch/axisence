@@ -4,6 +4,7 @@
   <p>Prepared for {{ report.organization_name }}</p>
   <p>{{ report.report_date }}</p>
   <p>Report #{{ number }}</p>
+  {% if report.compared_report_line %}<p>{{ report.compared_report_line }}</p>{% endif %}
   {% if report.is_draft %}<p class="draft-mark">Draft</p>{% endif %}
   <p class="cover-line">{{ report.cover_line }}</p>
 </section>

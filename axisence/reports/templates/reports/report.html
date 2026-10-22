@@ -9,6 +9,7 @@
 <div class="confidentiality">Confidential: prepared for {{ report.organization_name }}</div>
 {% include "reports/sections/cover.html" %}
 {% include "reports/sections/summary.html" %}
+{% if report.changes %}{% include "reports/sections/changes.html" %}{% endif %}
 {% include "reports/sections/map_and_overview.html" %}
 {% include "reports/sections/tuition_comparison.html" %}
 {% include "reports/sections/competitor_profiles.html" %}

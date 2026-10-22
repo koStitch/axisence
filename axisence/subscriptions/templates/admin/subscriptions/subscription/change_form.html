@@ -1,0 +1,39 @@
+{% extends "admin/change_form.html" %}
+
+{% block object-tools %}
+  {{ block.super }}
+  {% if can_prepare_repeat_job %}
+    {# A form of its own, so researchers, who only view subscriptions, can post it. #}
+    <form method="post" action="{{ prepare_url }}">
+      {% csrf_token %}
+      <div class="submit-row"><input type="submit" value="Prepare repeat job"></div>
+    </form>
+  {% endif %}
+{% endblock %}
+
+{% block after_field_sets %}
+  {{ block.super }}
+  {% if due_date_rows %}
+    <fieldset class="module">
+      <h2>Due dates</h2>
+      <table>
+        <thead><tr><th>Due date</th><th>Research job</th><th>Status</th><th>Final report</th></tr></thead>
+        <tbody>
+          {% for row in due_date_rows %}
+            <tr>
+              <td>{{ row.due_date|date:"Y-m-d" }}</td>
+              {% if row.serving_job %}
+                <td><a href="{% url 'admin:research_researchjob_change' row.serving_job.pk %}">{{ row.serving_job }}</a></td>
+                <td>{{ row.serving_job.get_status_display }}</td>
+              {% else %}
+                <td>Not prepared</td>
+                <td></td>
+              {% endif %}
+              <td>{% if row.final_report %}Report #{{ row.final_report.pk }}{% if perms.reports.view_report %} <a href="{% url 'admin:reports_report_download' row.final_report.pk %}">Download</a>{% endif %}{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </fieldset>
+  {% endif %}
+{% endblock %}

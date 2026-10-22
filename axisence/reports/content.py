@@ -9,7 +9,8 @@ from django.db.models import Max, Min, Q
 
 from axisence.ingestion.models import IngestionRun, IngestionSource
 from axisence.providers.models import ProviderKind
-from axisence.reports import competitors, provider_runs
+from axisence.reports import changes, competitors, listed_competitors, provider_runs
+from axisence.reports.changes import ChangesSection
 from axisence.reports.competitors import LoadedCompetitor, VerifiedData
 from axisence.reports.demographics import (
     DemographicsSection,
@@ -22,7 +23,8 @@ from axisence.reports.formatting import (
     format_report_date,
     format_short_date,
 )
-from axisence.reports.models import ReportKind
+from axisence.reports.listed_competitors import ListedCompetitorRecord
+from axisence.reports.models import Report, ReportKind
 from axisence.reports.prices import (
     REFERENCE_AGES_MONTHS,
     ComparisonCell,
@@ -30,7 +32,7 @@ from axisence.reports.prices import (
     has_current_price,
 )
 from axisence.reports.schematic_map import ReportMap, build_report_map
-from axisence.research.current_values import CurrentValues
+from axisence.research.current_values import CurrentValues, compute_current_values
 from axisence.research.distances import format_miles
 from axisence.research.jobs import tabulation_area_code
 from axisence.research.labels import licensed_capacity
@@ -112,7 +114,10 @@ class ReportContent:
     organization_name: str
     report_date: str
     cover_line: str
+    # Empty unless the report has a compared report.
+    compared_report_line: str
     summary: SummarySection
+    changes: ChangesSection | None
     report_map: ReportMap
     competitors: tuple[CompetitorEntry, ...]
     comparison_rows: tuple[ComparisonRow, ...]
@@ -128,20 +133,43 @@ class BuiltReport:
     tabulation_area_code: str
     ny_state_provider_run: IngestionRun | None
     nyc_health_provider_run: IngestionRun | None
+    compared_report: Report | None
+    listed_competitors: tuple[ListedCompetitorRecord, ...]
 
 
 def build_report(
     *, job: ResearchJob, kind: ReportKind, cut_off: datetime
 ) -> BuiltReport:
-    """Build a report's content as of the cut-off, in a fixed number of queries."""
+    """Build a report's content as of the cut-off, in a fixed number of queries.
+
+    A report of a repeat job also compares itself with its compared report.
+    """
     is_draft = kind == ReportKind.DRAFT
     chains = MergeChains.load()
     main, closed = competitors.load_competitors(job, chains, cut_off)
-    current_by_id = competitors.load_current_values_as_of(main, chains, cut_off)
+    observations_by_id = competitors.load_observations(main, chains)
+    current_by_id = {
+        competitor_id: compute_current_values(observations, as_of=cut_off)
+        for competitor_id, observations in observations_by_id.items()
+    }
     if job.target_point is None:
         raise RuntimeError(
             "A Researching or Complete job always has a confirmed target point."
         )
+    compared_report = _compared_report(job)
+    changes_section = (
+        None
+        if compared_report is None
+        else changes.build_changes_section(
+            job=job,
+            compared_report=compared_report,
+            main=main,
+            observations_by_competitor_id=observations_by_id,
+            current_by_id=current_by_id,
+            chains=chains,
+            cut_off=cut_off,
+        )
+    )
     area_code = tabulation_area_code(job.target_point)
     demographics = load_demographics(area_code)
     runs_by_source = provider_runs.load_latest_provider_runs(cut_off)
@@ -167,6 +195,9 @@ def build_report(
         organization_name=job.organization_name,
         report_date=format_report_date(cut_off),
         cover_line=_cover_line(len(main), area_code, job),
+        compared_report_line=""
+        if compared_report is None
+        else changes.compared_report_line(compared_report),
         summary=_summary(
             main,
             closed,
@@ -176,6 +207,7 @@ def build_report(
                 research_period["earliest"], research_period["latest"]
             ),
         ),
+        changes=changes_section,
         report_map=report_map,
         competitors=tuple(
             _competitor_entry(
@@ -220,7 +252,24 @@ def build_report(
         tabulation_area_code=area_code or "",
         ny_state_provider_run=ny_state_run,
         nyc_health_provider_run=nyc_health_run,
+        compared_report=compared_report,
+        listed_competitors=listed_competitors.records_of(main, closed),
     )
+
+
+def _compared_report(job: ResearchJob) -> Report | None:
+    """Return the report a repeat job's report is compared with; any other job gets
+    None without a query.
+    """
+    if job.predecessor_id is None:
+        return None
+    compared_report = listed_competitors.latest_final_report_with_listings(
+        job.predecessor_id
+    )
+    if compared_report is None:
+        # Preparing a repeat job requires the report, which is never deleted.
+        raise RuntimeError(listed_competitors.NO_COMPARED_REPORT_MESSAGE)
+    return compared_report
 
 
 def _cover_line(count: int, area_code: str | None, job: ResearchJob) -> str:

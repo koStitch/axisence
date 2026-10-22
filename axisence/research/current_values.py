@@ -77,7 +77,9 @@ def compute_current_values(
     4. In each slot, the newest contact among the counting values wins, by contact
        date, then entry time, then contact number, with all its values of the slot.
     """
-    valid = [observation for observation in observations if _counts(observation, as_of)]
+    valid = [
+        observation for observation in observations if is_counting(observation, as_of)
+    ]
     retired_definition_ids = {
         observation.age_group_id
         for observation in valid
@@ -126,7 +128,7 @@ def compute_current_values(
     slots = {}
     for slot, candidates in candidates_by_slot.items():
         newest = max(
-            (candidate.contact for candidate in candidates), key=_contact_recency
+            (candidate.contact for candidate in candidates), key=contact_recency
         )
         slots[slot] = CurrentSlot(
             slot=slot,
@@ -147,12 +149,22 @@ def compute_current_values(
     )
 
 
+def load_competitor_observations(
+    competitor_id: int, chains: MergeChains
+) -> list[Observation]:
+    """Return every observation of the competitor and of the competitors merged into
+    it, in one query, with their contacts and definitions loaded.
+    """
+    return list(
+        Observation.objects.filter(
+            contact__competitor_id__in=chains.member_ids(competitor_id)
+        ).select_related("contact", "contact__researcher", "age_group", "schedule")
+    )
+
+
 def load_current_values(competitor_id: int, chains: MergeChains) -> CurrentValues:
     """Return the competitor's current values, its merged competitors' included."""
-    observations = Observation.objects.filter(
-        contact__competitor_id__in=chains.member_ids(competitor_id)
-    ).select_related("contact", "contact__researcher", "age_group", "schedule")
-    return compute_current_values(observations)
+    return compute_current_values(load_competitor_observations(competitor_id, chains))
 
 
 def load_current_operating_statuses(
@@ -186,7 +198,11 @@ def load_current_operating_statuses(
     return statuses
 
 
-def _counts(observation: Observation, as_of: datetime | None) -> bool:
+def is_counting(observation: Observation, as_of: datetime | None) -> bool:
+    """Return whether the observation counts: neither it nor its contact is
+    retracted, or, as of a moment, its contact was entered by then and neither had
+    been retracted by then.
+    """
     contact = observation.contact
     if as_of is None:
         return observation.retracted_at is None and contact.retracted_at is None
@@ -197,5 +213,8 @@ def _counts(observation: Observation, as_of: datetime | None) -> bool:
     )
 
 
-def _contact_recency(contact: Contact) -> tuple[date, datetime, int]:
+def contact_recency(contact: Contact) -> tuple[date, datetime, int]:
+    """Return the order of contacts: contact date, then entry time, then contact
+    number.
+    """
     return (contact.contact_date, contact.entered_at, contact.pk)

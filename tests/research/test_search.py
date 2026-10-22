@@ -444,6 +444,48 @@ def _search_url(job):
     return reverse("admin:research_researchjob_search", args=(job.pk,))
 
 
+def test_carried_over_competitors_are_ticked_with_the_nearest_ones():
+    job = _job(preselected_competitor_count=1)
+    nearest = make_located_competitor(point_north_of(BOROUGH_HALL, 0.1))
+    beyond_the_count = make_located_competitor(point_north_of(BOROUGH_HALL, 0.3))
+    unticked = make_located_competitor(point_north_of(BOROUGH_HALL, 0.5))
+    outside_the_radius = make_located_competitor(point_north_of(BOROUGH_HALL, 1.5))
+
+    page = search.build_search_page(
+        job,
+        MergeChains.load(),
+        carried_over_ids=lambda: {beyond_the_count.pk, outside_the_radius.pk},
+    )
+
+    assert [(row.competitor.pk, row.is_selected) for row in page.results] == [
+        (nearest.pk, True),
+        (beyond_the_count.pk, True),
+        (unticked.pk, False),
+    ]
+    (kept,) = page.kept_selections
+    assert kept.competitor == outside_the_radius
+    assert kept.is_selected
+    assert kept.distance_meters == pytest.approx(1.5 * METERS_PER_MILE, rel=0.01)
+
+
+def test_carried_over_competitors_are_not_read_once_a_selection_exists():
+    job = _job()
+    selected = make_located_competitor(point_north_of(BOROUGH_HALL, 0.1))
+    JobCompetitor.objects.create(job=job, competitor=selected)
+    calls = []
+
+    def carried_over_ids():
+        calls.append(job.pk)
+        return {selected.pk}
+
+    page = search.build_search_page(
+        job, MergeChains.load(), carried_over_ids=carried_over_ids
+    )
+
+    assert calls == []
+    assert [row.competitor for row in page.results if row.is_selected] == [selected]
+
+
 def test_the_search_page_saves_the_posted_selection_and_the_added_competitor(
     admin_client,
 ):

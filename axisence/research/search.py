@@ -2,7 +2,7 @@
 
 import dataclasses
 import logging
-from collections.abc import Collection, Mapping
+from collections.abc import Callable, Collection, Mapping
 
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.measure import D
@@ -88,28 +88,49 @@ def find_competitors(
     return [(competitor, competitor.distance.m) for competitor in competitors]
 
 
-def build_search_page(job: ResearchJob, chains: MergeChains) -> SearchPage:
+def build_search_page(
+    job: ResearchJob,
+    chains: MergeChains,
+    *,
+    carried_over_ids: Callable[[], Collection[int]] | None = None,
+) -> SearchPage:
     """Return the results, the selections outside them, and every listed label.
 
     A job without any selected row starts with its nearest competitors ticked,
-    skipping reported closures; afterwards the stored selection is shown as it is.
+    skipping reported closures; afterwards the stored selection is shown as it is. A
+    job without any selected row also ticks the competitors carried_over_ids returns,
+    which a repeat job carries over from its predecessor's report, and shows those
+    outside the results among the kept selections. carried_over_ids is called only for
+    a job without a selected row.
     """
     found = find_competitors(job, chains)
-    displayed = load_displayed_job_competitors(job, chains)
-    selected_ids = {item.competitor.pk for item in displayed}
     result_ids = {competitor.pk for competitor, _ in found}
-    kept = [item for item in displayed if item.competitor.pk not in result_ids]
+    has_selection = JobCompetitor.objects.filter(job=job).exists()
+    carried: frozenset[int] = frozenset()
+    if has_selection:
+        displayed = load_displayed_job_competitors(job, chains)
+        selected_ids = {item.competitor.pk for item in displayed}
+        kept = [
+            (item.competitor, item.distance_meters)
+            for item in displayed
+            if item.competitor.pk not in result_ids
+        ]
+    else:
+        if carried_over_ids is not None:
+            carried = frozenset(carried_over_ids())
+        kept = _located_competitors(job, carried - result_ids)
     labels = load_competitor_labels(
-        [competitor for competitor, _ in found] + [item.competitor for item in kept],
+        [competitor for competitor, _ in found]
+        + [competitor for competitor, _ in kept],
         chains,
     )
-    if not JobCompetitor.objects.filter(job=job).exists():
+    if not has_selection:
         open_ids = [
             competitor.pk
             for competitor, _ in found
             if labels[competitor.pk].reported_closure is None
         ]
-        selected_ids = set(open_ids[: job.preselected_competitor_count])
+        selected_ids = set(open_ids[: job.preselected_competitor_count]) | carried
     return SearchPage(
         results=tuple(
             SearchRow(
@@ -120,14 +141,28 @@ def build_search_page(job: ResearchJob, chains: MergeChains) -> SearchPage:
             for competitor, distance_meters in found
         ),
         kept_selections=tuple(
-            SearchRow(
-                competitor=item.competitor,
-                distance_meters=item.distance_meters,
-                is_selected=True,
-            )
-            for item in kept
+            SearchRow(competitor=competitor, distance_meters=distance, is_selected=True)
+            for competitor, distance in kept
         ),
         labels=labels,
+    )
+
+
+def _located_competitors(
+    job: ResearchJob, competitor_ids: Collection[int]
+) -> list[tuple[Competitor, float | None]]:
+    """Return the competitors with their distances from the target, unknown last."""
+    if not competitor_ids:
+        return []
+    located = [
+        (competitor, None if competitor.distance is None else competitor.distance.m)
+        for competitor in Competitor.objects.filter(pk__in=competitor_ids).annotate(
+            distance=Distance("location", job.target_point)
+        )
+    ]
+    return sorted(
+        located,
+        key=lambda item: (item[1] is None, item[1] or 0.0, item[0].pk),
     )
 
 

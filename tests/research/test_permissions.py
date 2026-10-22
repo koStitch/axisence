@@ -46,6 +46,9 @@ RESEARCHERS_PERMISSIONS = {
     ("reports", "view_report"),
     ("reports", "generate_report"),
     ("reports", "generate_teaser"),
+    # Granted by subscriptions.0002_grant_subscription_permissions_to_researchers.
+    ("subscriptions", "view_subscription"),
+    ("subscriptions", "prepare_repeat_job"),
 }
 
 

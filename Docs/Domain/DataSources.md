@@ -270,12 +270,19 @@ A slot is what one value answers: the price of one age group on one schedule, th
 2. Retracting a contact retracts every observation of it.
 3. Retiring an age group or schedule is an observation of a later contact. It records that the provider no longer uses the definition, takes the definition's prices and availability out of the current values, and keeps them in the history.
 
+### Stated values and history
+
+1. A value states what is compared between contacts: a price its amount, its period, and whether the amount includes discounts; availability its status; a discount whether none is offered, its amount, and its percent; an other charge whether none is offered, its amount, its months of tuition, and its frequency. Descriptions, earliest start dates, and expected waits are not part of it.
+2. One contact's stated value of a slot is the set of its counting values there, and two are equal when the sets are equal. A re-confirmation records a copy of the current value, so it appears as an equal stated value.
+3. The call sheet's history groups each slot's counting values by contact, in contact order, and joins consecutive contacts with equal stated values into a run, shown with its first recorded and its last confirmed contact. Retracted values are left out, and the slots of retired definitions stay.
+
 ### Rules for observations
 
 1. Every observation records its date, method, and researcher through its contact. Prices change, so observations are never overwritten; a newer contact supersedes an older one for display while both are kept.
 2. Prices keep their stated period and the provider's own age-group and schedule definitions. Age bands differ between providers, so "infant" in one center is not assumed to match "infant" in another.
 3. Call notes and the target addresses of clients and prospects are personal data. Notes appear only on the call sheet and on the contact's own admin page, and never name, email, or phone a person. Neither notes nor target addresses ever appear in reports, fixtures, documentation, or logs.
 4. Inspection status is an observation like any other, with its date and method. The NYC Health inspection dataset (`dsg6-ifza`) is frozen, so it is not a source of current status.
+5. A new age group or schedule identical to a current one of the competitor, or of a competitor merged into it, is refused: the same name, ignoring case and extra spaces, and the same youngest and oldest age, or the same days per week and hours per day, where a blank limit or blank hours match only a blank. A new one identical to another new one of the same contact is refused too. A duplicate would split a slot and keep the old price current beside the new one. Duplicates recorded before the rule stay until a researcher retires them.
 
 ## Reports
 
@@ -284,7 +291,7 @@ A report presents a research job's competitors with their public data and resear
 ### Research values in a report
 
 1. A report's research values are the current values as of its cut-off, the moment it was generated: an observation counts when its contact was entered by then and neither it nor its contact had been retracted by then. The other rules of current values apply unchanged.
-2. Every value carries its contact date and method, whichever job or call sheet recorded it.
+2. Every value carries its contact date and method, whichever job or call sheet recorded it. The changes section of a repeat report is the exception: its value cells show values without their contact, and each continuing competitor's "Verified again" line names its newest contact since the compared report.
 3. Licensed capacity totals sum the published capacities of a competitor's active providers. A total states the regulators' maximum, never enrollment or availability; a competitor whose providers publish only some capacities is marked incomplete.
 
 ### Prices and the monthly equivalent
@@ -310,6 +317,18 @@ The comparison sets competitors side by side at the reference ages 12, 24, 36, a
 3. An empty cell says why: "not offered" when no age group contains the age, "no 5-day price" when one does but has no price on a 5-day schedule, and "not computable" when the only such prices are hourly on schedules without stated hours.
 4. A competitor without a current price reads "No verified prices".
 5. The 36-month cell notes "3-K for All seats" and the 48-month cell "Pre-K for All seats" when the competitor's current answer to that question is Yes.
+
+### Repeat reports
+
+1. A repeat job is prepared from a Complete client report job and records it as its predecessor. Each of its draft and final reports is compared with the predecessor's latest final report with listed competitors at generation, its compared report, which is recorded with the report.
+2. Every draft and final report records the competitors it lists: its main list, numbered, and its reported-closed list. Reports generated before this record have none, are never compared reports, and make no job repeatable.
+3. Both sides are the current values as of each report's cut-off, computed with the merges as they are at this generation, so a competitor merged since the compared report is compared with the combined values of the competitors merged into it.
+4. Matching: each entry of the compared report's main list resolves through merges, and a competitor of this report's main list continues when an entry resolves to it. An entry whose own competitor differs from the continuing competitor it resolves to is gone as merged.
+5. An added competitor is "Newly listed by its regulator since report #N" when it has at least one provider and every provider was first seen after the compared report's cut-off, and otherwise "Newly included". A gone competitor gives the first reason that applies: merged, reported permanently closed as of this cut-off, no longer listed by its regulator, or not included.
+6. Search settings: a changed radius, provider kinds added or removed, and a target moved at least 0.005 mile, stated as a distance only.
+7. Verified again: the newest contact entered between the two cut-offs that has a counting observation.
+8. Value classes: Changed, Re-confirmed, Not re-checked, New, and Ended, by stated value and by whether this side's value comes from a contact entered after the compared cut-off. A kind declined on both sides counts as unchanged; declined on one side and missing on the other, it is not compared.
+9. Tuition rows compare the comparison cells at the reference ages, so they bridge a provider's redefined age groups and schedules. The redefined slots themselves show as Ended and New, because nothing links a retired definition to its replacement.
 
 ### Census figures
 
@@ -389,3 +408,9 @@ These are the vintage 2024 values. The caps and the floor of `DP03_0062` appear 
 | Cut-off | The moment a report or teaser was generated; only contacts entered and retractions made by then count in it. |
 | Monthly equivalent | A price converted to an approximate amount per month when a report is rendered, never stored. |
 | Reference age | An age in months at which the tuition comparison compares competitors. |
+| Repeat job | A client report job prepared from an earlier one to report again on the same client and target. |
+| Compared report | The predecessor's latest final report with listed competitors, which a repeat job's report is compared with. |
+| Stated value | What a value says for comparison: a price's amount, period, and discount flag; availability's status; a discount's or charge's value and frequency, or none offered. |
+| Run | Consecutive contacts that recorded one stated value of a slot. |
+| Subscription | A client's standing order for repeat reports on a cadence, starting from one job. |
+| Due date | A date on which a subscription's next report is due, a whole number of cadences after its start date. |

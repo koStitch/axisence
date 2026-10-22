@@ -5,7 +5,8 @@ own permissions.
 """
 
 import dataclasses
-from collections.abc import Mapping, Sequence
+import functools
+from collections.abc import Callable, Collection, Mapping, Sequence
 from typing import Any
 
 from django.contrib import messages
@@ -24,7 +25,11 @@ from axisence.providers.models import Competitor, Provider
 from axisence.research import contacts, jobs, search
 from axisence.research.call_sheet import CallSheet
 from axisence.research.contacts import RecordingError, RetractionError
-from axisence.research.current_values import CurrentValues, load_current_values
+from axisence.research.current_values import (
+    CurrentValues,
+    compute_current_values,
+    load_competitor_observations,
+)
 from axisence.research.distances import format_miles
 from axisence.research.forms import CompetitorSelectionForm, RetractionForm
 from axisence.research.job_competitors import load_displayed_job_competitors
@@ -43,6 +48,7 @@ from axisence.research.models import (
     ResearchJob,
 )
 from axisence.research.search import SearchRow
+from axisence.research.value_history import build_value_history
 
 # Current values are listed in the order the observation kinds are declared.
 _KIND_ORDER = {kind.value: position for position, kind in enumerate(ObservationKind)}
@@ -91,9 +97,17 @@ class CurrentValueRow:
 
 
 def competitor_search(
-    request: HttpRequest, model_admin: ModelAdmin[Any], job_id: int
+    request: HttpRequest,
+    model_admin: ModelAdmin[Any],
+    job_id: int,
+    *,
+    carried_over_competitor_ids: Callable[[ResearchJob, MergeChains], Collection[int]],
 ) -> HttpResponse:
-    """List the job's candidate competitors, and save which ones it researches."""
+    """List the job's candidate competitors, and save which ones it researches.
+
+    A job's first search also ticks the competitors carried_over_competitor_ids
+    returns for it.
+    """
     if not request.user.has_perm("research.change_researchjob"):
         raise PermissionDenied
     job = get_object_or_404(ResearchJob, pk=job_id)
@@ -105,7 +119,11 @@ def competitor_search(
         messages.error(request, jobs.UNCONFIRMED_POINT_MESSAGE)
         return HttpResponseRedirect(job_url)
     chains = MergeChains.load()
-    page = search.build_search_page(job, chains)
+    page = search.build_search_page(
+        job,
+        chains,
+        carried_over_ids=functools.partial(carried_over_competitor_ids, job, chains),
+    )
     form = CompetitorSelectionForm(
         request.POST if request.method == "POST" else None,
         job_id=job.pk,
@@ -179,7 +197,9 @@ def call_sheet(
         return HttpResponseRedirect(f"{url}?{query}" if query else url)
     competitor = get_object_or_404(Competitor, pk=competitor_id)
     linked_job, job_notice = _linked_job(request, competitor, chains)
-    current_values = load_current_values(competitor.pk, chains)
+    # The current values and the history come from one query of observations.
+    observations = load_competitor_observations(competitor.pk, chains)
+    current_values = compute_current_values(observations)
     sheet = CallSheet(
         competitor=competitor,
         current_values=current_values,
@@ -224,6 +244,7 @@ def call_sheet(
         ),
         "labels": load_competitor_labels([competitor], chains)[competitor.pk],
         "current_value_rows": _current_value_rows(current_values),
+        "history": build_value_history(observations),
         "previous_contacts": Contact.objects.filter(
             competitor_id__in=chains.member_ids(competitor.pk)
         ).select_related("researcher", "job"),

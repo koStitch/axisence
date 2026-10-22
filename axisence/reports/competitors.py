@@ -33,7 +33,6 @@ from axisence.research.current_values import (
     CurrentSlot,
     CurrentValues,
     Slot,
-    compute_current_values,
 )
 from axisence.research.distances import METERS_PER_MILE
 from axisence.research.job_competitors import (
@@ -146,12 +145,12 @@ def load_competitors(
     return main, closed
 
 
-def load_current_values_as_of(
-    main: Sequence[LoadedCompetitor], chains: MergeChains, cut_off: datetime
-) -> dict[int, CurrentValues]:
-    """Return each competitor's current values as of the cut-off, in one query.
-
-    A competitor's values include those of every competitor merged into it.
+def load_observations(
+    main: Sequence[LoadedCompetitor], chains: MergeChains
+) -> dict[int, list[Observation]]:
+    """Return every observation of each competitor and of the competitors merged into
+    it, by current competitor, in one query, with their contacts and definitions
+    loaded.
     """
     if not main:
         return {}
@@ -168,10 +167,7 @@ def load_current_values_as_of(
         observations_by_current_id[
             chains.current_id(observation.contact.competitor_id)
         ].append(observation)
-    return {
-        current_id: compute_current_values(observations, as_of=cut_off)
-        for current_id, observations in observations_by_current_id.items()
-    }
+    return observations_by_current_id
 
 
 def is_reported_permanently_closed(labels: CompetitorLabels) -> bool:

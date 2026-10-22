@@ -5,7 +5,7 @@ import logging
 
 import pytest
 from django.contrib.gis.geos import MultiPolygon, Point, Polygon
-from django.db import connection
+from django.db import IntegrityError, connection, transaction
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
@@ -346,6 +346,92 @@ def test_jobs_are_never_deleted():
     with pytest.raises(PermanentRecordError):
         ResearchJob.objects.filter(pk=job.pk).delete()
     assert ResearchJob.objects.filter(pk=job.pk).exists()
+
+
+def _confirmed_job(researcher, status, **fields):
+    return make_job(
+        researcher=researcher,
+        point=BOROUGH_HALL,
+        confirmed=True,
+        status=status,
+        **fields,
+    )
+
+
+def _change_status(job, status):
+    jobs.change_status(job=job, status=status, chains=MergeChains.load())
+    job.refresh_from_db()
+
+
+def test_a_job_cannot_be_cancelled_while_an_open_repeat_follows_it():
+    researcher = make_researcher()
+    # Reopened after its repeat was prepared, since a Complete job is never Cancelled.
+    predecessor = _confirmed_job(researcher, JobStatus.RESEARCHING)
+    repeat = _confirmed_job(researcher, JobStatus.DRAFT, predecessor=predecessor)
+
+    with pytest.raises(jobs.ResearchJobError) as raised:
+        _change_status(predecessor, JobStatus.CANCELLED)
+    predecessor.refresh_from_db()
+    _change_status(repeat, JobStatus.CANCELLED)
+    _change_status(predecessor, JobStatus.CANCELLED)
+
+    assert str(raised.value) == (
+        f"Research job #{repeat.pk} repeats this job. Cancel that job first."
+    )
+    assert predecessor.status == JobStatus.CANCELLED
+
+
+def test_a_cancelled_repeat_cannot_reopen_while_another_open_repeat_exists():
+    researcher = make_researcher()
+    predecessor = _confirmed_job(researcher, JobStatus.COMPLETE)
+    cancelled = _confirmed_job(researcher, JobStatus.CANCELLED, predecessor=predecessor)
+    open_repeat = _confirmed_job(researcher, JobStatus.DRAFT, predecessor=predecessor)
+
+    with pytest.raises(jobs.ResearchJobError) as raised:
+        _change_status(cancelled, JobStatus.RESEARCHING)
+    cancelled.refresh_from_db()
+    still_cancelled = cancelled.status
+    _change_status(open_repeat, JobStatus.CANCELLED)
+    _change_status(cancelled, JobStatus.RESEARCHING)
+    predecessor.refresh_from_db()
+
+    assert str(raised.value) == (
+        f"Research job #{open_repeat.pk} already repeats research job "
+        f"#{predecessor.pk}."
+    )
+    assert still_cancelled == JobStatus.CANCELLED
+    assert cancelled.status == JobStatus.RESEARCHING
+    assert predecessor.status == JobStatus.COMPLETE
+
+
+def test_the_database_allows_one_open_repeat_per_job():
+    researcher = make_researcher()
+    predecessor = _confirmed_job(researcher, JobStatus.COMPLETE)
+    _confirmed_job(researcher, JobStatus.DRAFT, predecessor=predecessor)
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        _confirmed_job(researcher, JobStatus.RESEARCHING, predecessor=predecessor)
+    _confirmed_job(researcher, JobStatus.CANCELLED, predecessor=predecessor)
+
+    assert ResearchJob.objects.filter(predecessor=predecessor).count() == 2
+
+
+def test_a_cancelled_repeat_cannot_reopen_while_its_predecessor_is_cancelled():
+    researcher = make_researcher()
+    predecessor = _confirmed_job(researcher, JobStatus.COMPLETE)
+    repeat = _confirmed_job(researcher, JobStatus.DRAFT, predecessor=predecessor)
+    _change_status(repeat, JobStatus.CANCELLED)
+    _change_status(predecessor, JobStatus.RESEARCHING)
+    _change_status(predecessor, JobStatus.CANCELLED)
+
+    with pytest.raises(jobs.ResearchJobError) as raised:
+        _change_status(repeat, JobStatus.RESEARCHING)
+    repeat.refresh_from_db()
+
+    assert str(raised.value) == (
+        f"Research job #{predecessor.pk} is Cancelled. Reopen that job first."
+    )
+    assert repeat.status == JobStatus.CANCELLED
 
 
 @pytest.mark.parametrize("status", list(JobStatus), ids=lambda status: status.value)

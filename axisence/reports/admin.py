@@ -1,5 +1,6 @@
 """Admin pages for reports and teasers, which are listed and downloaded but never added,
-changed, or deleted, and the research job page's buttons and list of them.
+changed, or deleted, the research job page's buttons and list of them, and a repeat
+job's first selection.
 """
 
 from typing import TYPE_CHECKING, Any, Protocol
@@ -13,10 +14,11 @@ from django.utils.html import format_html
 from django.utils.safestring import SafeString
 
 from axisence.accounts.models import User
-from axisence.reports import generation, views
+from axisence.reports import generation, listed_competitors, views
 from axisence.reports.errors import ReportError
 from axisence.reports.models import Report
 from axisence.research.admin import ResearchJobAdmin
+from axisence.research.merges import MergeChains
 from axisence.research.models import ResearchJob
 from axisence.research.views import researcher_from_request
 
@@ -30,6 +32,7 @@ else:
 _REPORT_FIELD_NAMES = (
     "job",
     "kind",
+    "compared_report",
     "generated_at",
     "generated_by",
     "census_vintage",
@@ -54,6 +57,7 @@ class ReportAdmin(ReportAdminBase):
         "job",
         "kind",
         "generated_at",
+        "compared_with",
         "census_vintage",
         "download_link",
     )
@@ -75,6 +79,12 @@ class ReportAdmin(ReportAdminBase):
         self, request: HttpRequest, obj: Report | None = None
     ) -> bool:
         return False
+
+    @admin.display(description="Compared with")
+    def compared_with(self, report: Report) -> str:
+        if report.compared_report_id is None:
+            return ""
+        return f"Report #{report.compared_report_id}"
 
     @admin.display(description="File")
     def download_link(self, report: Report) -> SafeString:
@@ -131,10 +141,18 @@ class ResearchJobWithReportsAdmin(ResearchJobAdmin):
                 job_reports=list(
                     Report.objects.filter(job=obj)
                     .order_by("-pk")
-                    .only("pk", "kind", "generated_at")
+                    .only("pk", "kind", "generated_at", "compared_report")
                 ),
             )
         return super().render_change_form(request, context, add, change, form_url, obj)
+
+    def carried_over_competitor_ids(
+        self, job: ResearchJob, chains: MergeChains
+    ) -> frozenset[int]:
+        """Return the competitors a repeat job carries over from its predecessor's
+        latest final report.
+        """
+        return listed_competitors.carried_over_competitor_ids(job, chains)
 
     def response_change(self, request: HttpRequest, obj: ResearchJob) -> HttpResponse:
         # Runs after the page's own changes are saved, so the document sees them.

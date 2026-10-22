@@ -24,6 +24,8 @@ from axisence.reports.formatting import (
     format_report_date,
     format_short_date,
 )
+from axisence.reports.listed_competitors import ListedCompetitorRecord
+from axisence.reports.models import Report
 from axisence.reports.schematic_map import MarkSizes, ReportMap, build_report_map
 from axisence.research.distances import format_miles
 from axisence.research.jobs import tabulation_area_code
@@ -142,6 +144,9 @@ class BuiltTeaser:
     tabulation_area_code: str
     ny_state_provider_run: IngestionRun | None
     nyc_health_provider_run: IngestionRun | None
+    # A teaser compares with nothing and records no listed competitors.
+    compared_report: Report | None = None
+    listed_competitors: tuple[ListedCompetitorRecord, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

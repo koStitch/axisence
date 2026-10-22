@@ -2,12 +2,14 @@
 
 A contact and its observations are recorded in one transaction and never changed
 afterwards. A mistake is retracted with a reason, and the correct value is recorded
-in a new contact. Notes, descriptions, and values are never logged.
+in a new contact. Notes, descriptions, and values are never logged. A new age group or
+schedule identical to a current one, or to another new one of the same contact, is
+refused, so re-recording a definition never splits a slot's history.
 """
 
 import dataclasses
 import logging
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date
 from typing import Any
 
@@ -17,7 +19,7 @@ from django.utils import timezone
 
 from axisence.accounts.models import User
 from axisence.providers.models import Competitor
-from axisence.research.current_values import load_current_values
+from axisence.research.current_values import CurrentValues, load_current_values
 from axisence.research.job_competitors import load_displayed_job_competitors
 from axisence.research.merges import MergeChains
 from axisence.research.models import (
@@ -146,7 +148,7 @@ def record_contact(*, entry: ContactEntry, researcher: User) -> Contact:
             definition.pk for definition in current.schedules
         ),
     }
-    _check_entry(entry, current_ids_by_kind)
+    _check_entry(entry, current, current_ids_by_kind)
     contact = Contact(
         competitor=competitor,
         job=entry.job,
@@ -238,7 +240,9 @@ def _may_link(job: ResearchJob, competitor: Competitor, chains: MergeChains) -> 
 
 
 def _check_entry(
-    entry: ContactEntry, current_ids_by_kind: Mapping[str, frozenset[int]]
+    entry: ContactEntry,
+    current: CurrentValues,
+    current_ids_by_kind: Mapping[str, frozenset[int]],
 ) -> None:
     current_ids = frozenset().union(*current_ids_by_kind.values())
     if not entry.retired_definition_ids <= current_ids:
@@ -277,6 +281,76 @@ def _check_entry(
     ]
     if len(single_fact_kinds) != len(set(single_fact_kinds)):
         raise RecordingError("The entry has invalid values.")
+    duplicate = _duplicate_definition_message(entry.new_definitions, current)
+    if duplicate is not None:
+        raise RecordingError(duplicate)
+
+
+def _normalized_name(name: str) -> str:
+    return " ".join(name.split()).casefold()
+
+
+def _definition_key(kind: str, values: Mapping[str, Any]) -> tuple[object, ...]:
+    if kind == ObservationKind.AGE_GROUP:
+        return (
+            _normalized_name(values["name"]),
+            values["youngest_age_months"],
+            values.get("oldest_age_months"),
+        )
+    return (
+        _normalized_name(values["name"]),
+        values["days_per_week"],
+        values.get("hours_per_day"),
+    )
+
+
+def _stored_definition_key(definition: Observation) -> tuple[object, ...]:
+    if definition.kind == ObservationKind.AGE_GROUP:
+        return (
+            _normalized_name(definition.name),
+            definition.youngest_age_months,
+            definition.oldest_age_months,
+        )
+    return (
+        _normalized_name(definition.name),
+        definition.days_per_week,
+        definition.hours_per_day,
+    )
+
+
+def _duplicate_definition_message(
+    new_definitions: Sequence[NewDefinition], current: CurrentValues
+) -> str | None:
+    """Name the first new definition identical to a current one of its kind, or to an
+    earlier new one of the same contact.
+
+    Names compare without case and extra spaces; a blank limit or blank hours match
+    only a blank.
+    """
+    for position, definition in enumerate(new_definitions):
+        kind_label = ObservationKind(definition.kind).label.lower()
+        key = _definition_key(definition.kind, definition.values)
+        existing_definitions = (
+            current.age_groups
+            if definition.kind == ObservationKind.AGE_GROUP
+            else current.schedules
+        )
+        for existing in existing_definitions:
+            if _stored_definition_key(existing) == key:
+                return (
+                    f"New {kind_label} {definition.key} matches the current "
+                    f'{kind_label} "{existing.name}". Choose that {kind_label} '
+                    "instead."
+                )
+        for earlier in new_definitions[:position]:
+            if earlier.kind == definition.kind and (
+                _definition_key(earlier.kind, earlier.values) == key
+            ):
+                return (
+                    f"New {kind_label} {definition.key} matches new {kind_label} "
+                    f"{earlier.key}."
+                )
+    return None
 
 
 def _retirement(

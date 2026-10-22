@@ -1,0 +1,65 @@
+<section class="changes">
+  <h2>{{ report.changes.heading }}</h2>
+  <p>{{ report.changes.opening }}</p>
+  {% if report.changes.search_settings %}
+    <h3>Search settings</h3>
+    {% for line in report.changes.search_settings %}<p>{{ line }}</p>{% endfor %}
+    <p class="note">{{ report.changes.search_settings_note }}</p>
+  {% endif %}
+  <h3>Competitors added</h3>
+  {% if report.changes.added %}
+    <table class="listed-changes">
+      <thead><tr><th class="listed-number-column">No.</th><th>Competitor</th><th class="reason-column">Reason</th></tr></thead>
+      <tbody>
+        {% for competitor in report.changes.added %}
+          <tr><td>{{ competitor.number }}</td><td>{{ competitor.name }}</td><td>{{ competitor.reason }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>None.</p>
+  {% endif %}
+  <h3>Competitors gone</h3>
+  {% if report.changes.gone %}
+    <table class="listed-changes">
+      <thead><tr><th class="listed-number-column">{{ report.changes.gone_number_heading }}</th><th>Competitor</th><th class="reason-column">Reason</th></tr></thead>
+      <tbody>
+        {% for competitor in report.changes.gone %}
+          <tr><td>{{ competitor.number }}</td><td>{{ competitor.name }}</td><td>{{ competitor.reason }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>None.</p>
+  {% endif %}
+  <h3>Competitors in both reports</h3>
+  {% for competitor in report.changes.continuing %}
+    <div class="continuing">
+      <h4>{{ competitor.heading }}</h4>
+      <p>{{ competitor.verified_line }}</p>
+      {% if competitor.rows %}
+        <table class="change-values">
+          <thead><tr><th>Value</th><th>{{ report.changes.compared_column_heading }}</th><th>This report</th><th>Change</th></tr></thead>
+          <tbody>
+            {% for row in competitor.rows %}
+              <tr>
+                <td>{{ row.value }}</td>
+                <td>{% for value in row.earlier %}{{ value }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                <td>{% for value in row.this %}{{ value }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                <td>{{ row.change }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>No compared value changed.</p>
+      {% endif %}
+      {% if competitor.counts_line %}<p class="note">{{ competitor.counts_line }}</p>{% endif %}
+    </div>
+  {% empty %}
+    <p>None.</p>
+  {% endfor %}
+  {% for note in report.changes.notes %}
+    <p class="note">{{ note }}</p>
+  {% endfor %}
+</section>

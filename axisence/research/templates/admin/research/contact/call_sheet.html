@@ -100,6 +100,38 @@
   </div>
 
   <div class="module">
+    <h2>History</h2>
+    {% for slot in history %}
+      <h3>{{ slot.heading }}</h3>
+      {% for line in slot.retirement_lines %}<p>{{ line }}</p>{% endfor %}
+      <div class="results">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Value</th>
+              <th scope="col">First recorded</th>
+              <th scope="col">Last confirmed</th>
+              <th scope="col">Contacts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for run in slot.runs %}
+              <tr>
+                <td>{% for value in run.values %}{{ value }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                <td>{{ run.first_recorded }}</td>
+                <td>{{ run.last_confirmed }}</td>
+                <td>{{ run.contact_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% empty %}
+      <p>Nothing recorded yet.</p>
+    {% endfor %}
+  </div>
+
+  <div class="module">
     <h2>Previous contacts</h2>
     {% if previous_contacts %}
       <div class="results">

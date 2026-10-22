@@ -1,6 +1,6 @@
 # Project Architecture
 
-How Axisence runs: what runs on the Windows host and what runs in containers, the Compose services, the package map, settings, the data pipeline, the research tool, the report and teaser generator, commands, and the test and type-checking setup.
+How Axisence runs: what runs on the Windows host and what runs in containers, the Compose services, the package map, settings, the data pipeline, the research tool, the report and teaser generator, subscriptions and repeat jobs, commands, and the test and type-checking setup.
 
 ## Host and container
 
@@ -40,8 +40,9 @@ GeoDjango loads the GDAL and GEOS native libraries when Django starts. Installin
 | `axisence.ingestion` | Pipeline infrastructure shared by every source. Models `IngestionRun` and `IngestionSnapshot`. `http_session.py` builds the HTTP sessions of the pipeline and of the research tool's lookups; `snapshots.py` saves and locates raw snapshots; `socrata.py` fetches a Socrata dataset's metadata and export; `runs.py` starts, completes, fails, and reports runs; `redaction.py` removes secrets from text and log records; `errors.py` holds `IngestionError`. View-only admin pages. |
 | `axisence.providers` | Providers and competitors. Models `Provider`, `Competitor`, `ReviewFlag`, and `CompetitorDecision`. `normalization.py` derives display names and matching keys; `parsing.py`, `ny_state.py`, and `nyc_health.py` parse the exports into records; `storing.py` upserts records and tracks activity; `grouping.py` places providers into competitors and refreshes competitor summaries; `geocoding.py` geocodes providers without coordinates; `review.py` holds the researcher decisions; `pipeline.py` runs one provider ingestion. The commands `ingest_ny_state_providers` and `ingest_nyc_health_providers`. Admin pages where researchers review flags, move providers, and merge competitors. |
 | `axisence.demographics` | Census data. Models `TabulationArea`, `CensusVariable`, and `CensusFigure`. `census_api.py` requests the Census Data API; `parsing.py` parses its responses; `boundaries.py` reads the boundary shapefile; `loading.py` stores figures and boundaries; `pipeline.py` runs both Census ingestions. The commands `ingest_census_demographics` and `ingest_census_boundaries`. View-only admin pages. |
-| `axisence.research` | The research tool. Models `ResearchJob`, `JobCompetitor`, `Contact`, and `Observation`. `geocoding.py` looks target addresses up; `merges.py` resolves merged competitors; `distances.py` measures and formats straight-line distances; `search.py` finds a job's competitors and saves its selection; `labels.py` builds the labels of every listed competitor and sums licensed capacities; `current_values.py` computes the current value of every slot; both also apply a report's cut-off; `job_competitors.py` lists a job's competitors and stores their distances; `jobs.py` holds the job lifecycle; `contacts.py` records and retracts contacts; `forms.py` and `call_sheet.py` hold the forms; `views.py` holds the pages inside the admin; `redaction.py` holds the logging filter for target addresses. Admin pages and their templates. It depends on `providers`, `demographics`, and `ingestion`, and none of them imports it. |
-| `axisence.reports` | The report and teaser generator. Model `Report`. `figure_lists.py` holds the Census figures a report shows, and the subset a teaser shows, per vintage; `demographics.py` checks the list and builds the demographics section; `prices.py` computes monthly equivalents and the tuition comparison; `schematic_map.py` draws the map; `competitors.py` loads the competitors and builds their texts and profiles; `provider_runs.py` loads the provider runs a document reads and words their as-of dates; `content.py` builds everything a report shows; `teaser_content.py` builds everything a teaser shows; `rendering.py` renders the HTML and the PDF, and checks a teaser's single page; `storage.py` writes report and teaser files; `generation.py` checks the rules, generates, and records a report or a teaser; `views.py` holds the download; `errors.py` holds the errors. The commands `generate_report` and `generate_teaser`. Admin pages and the research job page's report and teaser additions. It depends on `research`, `providers`, `demographics`, and `ingestion`, and none of them imports it. |
+| `axisence.research` | The research tool. Models `ResearchJob`, `JobCompetitor`, `Contact`, and `Observation`; `ResearchJob.predecessor` records the job a repeat job repeats. `geocoding.py` looks target addresses up; `merges.py` resolves merged competitors; `distances.py` measures and formats straight-line distances; `search.py` finds a job's competitors and saves its selection; `labels.py` builds the labels of every listed competitor and sums licensed capacities; `current_values.py` computes the current value of every slot; both also apply a report's cut-off; `stated_values.py` defines what a value states and the order of value slots; `value_history.py` builds the call sheet's history; `job_competitors.py` lists a job's competitors and stores their distances; `jobs.py` holds the job lifecycle; `signals.py` holds `job_status_changing`, through which other apps add status rules; `contacts.py` records and retracts contacts; `forms.py` and `call_sheet.py` hold the forms; `views.py` holds the pages inside the admin; `redaction.py` holds the logging filter for target addresses. Admin pages and their templates. It depends on `providers`, `demographics`, and `ingestion`, and none of them imports it. |
+| `axisence.reports` | The report and teaser generator. Models `Report` and `ListedCompetitor`. `figure_lists.py` holds the Census figures a report shows, and the subset a teaser shows, per vintage; `demographics.py` checks the list and builds the demographics section; `prices.py` computes monthly equivalents and the tuition comparison; `schematic_map.py` draws the map; `competitors.py` loads the competitors and builds their texts and profiles; `provider_runs.py` loads the provider runs a document reads and words their as-of dates; `listed_competitors.py` records and reads the competitors a report lists, the compared report, and a repeat job's carried-over competitors; `changes.py` builds a repeat report's changes section; `content.py` builds everything a report shows; `teaser_content.py` builds everything a teaser shows; `rendering.py` renders the HTML and the PDF, and checks a teaser's single page; `storage.py` writes report and teaser files; `generation.py` checks the rules, generates, and records a report or a teaser; `views.py` holds the download; `errors.py` holds the errors. The commands `generate_report` and `generate_teaser`. Admin pages, the research job page's report and teaser additions, and a repeat job's first selection. It depends on `research`, `providers`, `demographics`, and `ingestion`, and none of them imports it. |
+| `axisence.subscriptions` | Subscriptions and repeat jobs. Models `Subscription` and `ServingJob`. `schedule.py` computes due dates, due states, and progress; `lines.py` follows lines of repeat jobs; `lifecycle.py` validates and saves subscriptions; `repeats.py` prepares repeat jobs and refuses reopening served due dates; `forms.py`, `admin.py`, and `views.py` hold the pages and the research job page's repeat additions. It depends on `reports` and `research`, and no other app imports it. |
 | `tests` | The test suite, mirroring the packages above. |
 
 Every Django app is a subpackage of `axisence`, for example `axisence.providers`, and is listed in `INSTALLED_APPS` in `config/settings.py`. `django.contrib.postgres`, which ships with Django, is installed too, for the array of provider kinds a research job searches. The admin at `/admin/` is the only URL.
@@ -130,9 +131,9 @@ Researchers run research jobs and record contacts in pages inside the admin, beh
 
 | Page | URL | Holds |
 | --- | --- | --- |
-| Research job | `/admin/research/researchjob/<id>/change/` | The job; the target point on GeoDjango's OpenStreetMap map widget, with its confirmation and its tabulation area; the job's competitors with their research statuses; the status buttons; the "Generate report" and "Generate teaser" buttons and the Reports section, which the reports app adds. |
-| Competitor search | `/admin/research/researchjob/<id>/search/` | The candidate competitors with their straight-line distances and labels, the selection, and adding a competitor by name. |
-| Call sheet | `/admin/research/contact/call-sheet/<competitor id>/` | The competitor's published data, labels, current values, and previous contacts, and the entry form of a new contact. |
+| Research job | `/admin/research/researchjob/<id>/change/` | The job; the target point on GeoDjango's OpenStreetMap map widget, with its confirmation and its tabulation area; the job's competitors with their research statuses; the status buttons; the "Generate report" and "Generate teaser" buttons and the Reports section, which the reports app adds; the "Repeats" module and the "Prepare repeat job" button, which the subscriptions app adds. |
+| Competitor search | `/admin/research/researchjob/<id>/search/` | The candidate competitors with their straight-line distances and labels, the selection, a repeat job's first selection, and adding a competitor by name. |
+| Call sheet | `/admin/research/contact/call-sheet/<competitor id>/` | The competitor's published data, labels, current values, the history of its values, and previous contacts, and the entry form of a new contact. |
 | Retraction | `/admin/research/contact/<id>/retract/` | The confirmation and the reason of a retraction, of a whole contact or, with `?observation=<id>`, of one observation. |
 
 1. The views live in `axisence/research/views.py` and are wired through the model admins' `get_urls`, so the admin login guards them. Each view checks its own permissions.
@@ -151,8 +152,9 @@ The data migration `research.0002_create_researchers_group` creates the group "R
 | `demographics` | View tabulation areas, Census variables, and Census figures. |
 | `research` | Add, view, and change research jobs and job competitors; add and view contacts and observations; `retract_contact`, the permission to retract contacts and observations. |
 | `reports` | View reports; `generate_report`, the permission to generate reports; `generate_teaser`, the permission to generate teasers. |
+| `subscriptions` | View subscriptions; `prepare_repeat_job`, the permission to prepare repeat jobs. |
 
-The data migration `reports.0002_grant_report_permissions_to_researchers` adds the `reports` permissions to the group, creating them first in the same way. `reports.0004_grant_teaser_permission_to_researchers` adds `generate_teaser` the same way.
+The data migration `reports.0002_grant_report_permissions_to_researchers` adds the `reports` permissions to the group, creating them first in the same way. `reports.0004_grant_teaser_permission_to_researchers` adds `generate_teaser` the same way. `subscriptions.0002_grant_subscription_permissions_to_researchers` adds the `subscriptions` permissions the same way.
 
 A researcher therefore cannot manage accounts or change ingested data other than through the competitor review actions.
 
@@ -163,6 +165,8 @@ Contacts and observations are never changed or deleted, and research jobs are ne
 1. The admin refuses to change or delete contacts and observations, and to delete research jobs, for every user, the superuser included. Contacts are added only through the call sheet.
 2. `Contact.save` and `Observation.save` refuse any update other than of the three retraction columns. Their instance `delete` and their querysets' `update` and `delete`, and with it `bulk_update`, raise `PermanentRecordError`, and research jobs refuse deletion the same way.
 3. Every foreign key to these rows is `PROTECT`, and check constraints keep each observation kind to its own columns, every retraction complete, and research on a confirmed target point.
+
+A repeat job's predecessor is written once, by the preparing service, when the job is created; it is not a form field, and no service changes it afterwards.
 
 ### Merged competitors
 
@@ -183,11 +187,11 @@ Research rows keep the competitor they were recorded for and are never rewritten
 `generation.generate_report` and `generation.generate_teaser` run inside the request of the job page or inside the `generate_report` or `generate_teaser` command; there is no queue or worker.
 
 1. It refuses, with a `ReportRefusedError` whose message is shown to the user, a job whose purpose is not Client report, a Draft or Cancelled job, a job that lists no competitors, and a Census figure list that no longer matches the stored labels. Researching gives a draft and Complete a final report; the kind is stored and never changes, and reports of a reopened job stay.
-2. The generation time is the report's cut-off. Research values are the current values as of the cut-off; competitors, merges, providers, operating statuses, and Census figures are read as they are.
+2. The generation time is the report's cut-off. Research values are the current values as of the cut-off; competitors, merges, providers, operating statuses, and Census figures are read as they are. A repeat report's changes section also computes research values as of its compared report's cut-off, from the same observations.
 3. `content.build_report` builds everything the report shows as frozen dataclasses of display-ready text, in a fixed number of queries. The templates receive only these and the report's number, never a model instance, so no personal field can reach a template.
 4. The number is reserved from the primary-key sequence before rendering, because every page prints it. A failure after the reservation leaves its number unused, so numbers always increase but can skip.
 5. The PDF is written as `<prefix>-<number>.pdf` under `REPORT_DIRECTORY`: `report-` for reports, `market-preview-` for teasers. It goes through a `.part` file renamed when complete, and an existing file is never overwritten.
-6. The `Report` row records the number, the job, the kind, the generation time, the generating user (none for the command), the Census vintage, the tabulation-area code, the latest succeeded run of each provider source finished by the cut-off, and the file's name, size, and SHA-256.
+6. The `Report` row records the number, the job, the kind, the generation time, the generating user (none for the command), the compared report of a repeat job's report, the Census vintage, the tabulation-area code, the latest succeeded run of each provider source finished by the cut-off, and the file's name, size, and SHA-256. A draft or final report also records its listed competitors, as `ListedCompetitor` rows: its main list, numbered, and its reported-closed list. Both are written in the same savepoint as the row; a teaser records neither.
 7. Everything after the checks runs in a savepoint of its own, so a failure never rolls back the job page's own changes saved in the same request. Any failure removes the file, logs only the error's class name and the job number, and raises `ReportGenerationError` with "The report could not be generated.", or "The teaser could not be generated." for a teaser. `generate_report` and `generate_teaser` share this flow in `generation.py`.
 
 ### Rendering
@@ -201,14 +205,14 @@ Research rows keep the competitor they were recorded for and are never rewritten
 
 | Page | URL | Holds |
 | --- | --- | --- |
-| Research job | `/admin/research/researchjob/<id>/change/` | "Generate report" and "Generate teaser" beside the status buttons, and the Reports section listing the job's reports and teasers newest first. |
-| Reports | `/admin/reports/report/` | Every report and teaser with its job, kind, generation time, vintage, and download link, filtered by kind (Draft, Final, or Teaser) or job and searched by job number. |
+| Research job | `/admin/research/researchjob/<id>/change/` | "Generate report" and "Generate teaser" beside the status buttons, and the Reports section listing the job's reports and teasers newest first, with the report each report is compared with. |
+| Reports | `/admin/reports/report/` | Every report and teaser with its job, kind, generation time, the report each report is compared with, vintage, and download link, filtered by kind (Draft, Final, or Teaser) or job and searched by job number. |
 | Download | `/admin/reports/report/<id>/download/` | The stored PDF as an attachment under its stored file name; a missing file returns to the previous page with "The file of report #N is no longer stored." |
 
-1. `admin.py` unregisters the research app's `ResearchJobAdmin` and registers its subclass `ResearchJobWithReportsAdmin` in place, with a template that fills the research template's empty `job_action_buttons` block, so the research app never imports the reports app. Both buttons post the page, so the job's own changes, such as research statuses, are saved before the report or teaser is generated.
+1. `admin.py` unregisters the research app's `ResearchJobAdmin` and registers its subclass `ResearchJobWithReportsAdmin` in place, with a template that fills the research template's empty `job_action_buttons` block, so the research app never imports the reports app. Both buttons post the page, so the job's own changes, such as research statuses, are saved before the report or teaser is generated. `axisence/subscriptions/admin.py` in turn imports `ResearchJobWithReportsAdmin`, unregisters it, and registers its subclass `ResearchJobWithSubscriptionsAdmin` in its place.
 2. "Generate report" shows for a job `generation.is_eligible` accepts, to a user who can change the job and holds `reports.generate_report`. "Generate teaser" shows for a job `generation.is_teaser_eligible` accepts, a Prospect job that is not Cancelled and has a confirmed point, to a user who can change the job and holds `reports.generate_teaser`; blank contact settings and an empty search do not hide it. Every post checks the button's permission and the job's view permission again, and the service checks every rule again.
 3. `Report` has three permissions: view, `generate_report`, and `generate_teaser`. Downloading needs the view permission.
-4. Reports are never changed or deleted: the admin refuses adding, changing, and deleting them for every user; `Report.save` accepts only the first insert; `Report.delete` and the queryset's `update` and `delete` raise `PermanentRecordError`; and every foreign key from a report is `PROTECT`.
+4. Reports are never changed or deleted: the admin refuses adding, changing, and deleting them for every user; `Report.save` accepts only the first insert; `Report.delete` and the queryset's `update` and `delete` raise `PermanentRecordError`; and every foreign key from a report is `PROTECT`. Listed competitors follow the same guards and have no admin page.
 
 ### Logging
 
@@ -231,6 +235,62 @@ Research rows keep the competitor they were recorded for and are never rewritten
     7. Without sizes, as for the client report's map, every number sits on its position and every code at its area's own label point.
 6. The PDF's title is "Axisence market preview <number>" and its language `en-US`. It has no other metadata field, and its outline holds only the fixed headings.
 7. Teasers are `Report` rows of kind `teaser`, numbered in the same sequence as reports and never changed or deleted. They download through the same view.
+
+## Subscriptions and repeat jobs
+
+`axisence.subscriptions` prepares repeat jobs and keeps subscriptions, a client's standing order for repeat reports on a cadence. `Docs/Domain/DataSources.md` describes how a repeat report compares itself with its compared report.
+
+### Pages
+
+| Page | URL | Holds |
+| --- | --- | --- |
+| Research job | `/admin/research/researchjob/<id>/change/` | The "Repeats" module, with the job a repeat job repeats, the jobs that repeat it with their statuses, and the subscription and due date it serves; and the "Prepare repeat job" button beside the status buttons. |
+| Subscriptions | `/admin/subscriptions/subscription/` | Every subscription with its organization, starting job, cadence, start and end dates, next due date, and due state, ordered by next due date with subscriptions without one last, filtered by due state or cadence, and searched by job number. |
+| Subscription | `/admin/subscriptions/subscription/<id>/change/` | The starting job, cadence, start date, and end date; the next due date, due state, creator, and creation time, read-only; the due dates with the jobs serving them, their statuses, and their final reports; and the "Prepare repeat job" button. |
+| Prepare repeat job | `/admin/subscriptions/subscription/<id>/prepare-repeat-job/` | POST only: prepares the repeat job of the subscription's latest job and opens it. |
+
+1. The job page's button posts the research job change form, so the page's own changes are saved first, and it shows only to users who can also change research jobs. The subscription page's button is a separate small form outside the change form, so researchers, who only view subscriptions, can post it.
+2. `admin.py` computes every subscription's progress in a fixed number of queries and annotates the next due date and the due state onto the rows by number, so the list orders and filters by them in SQL while due dates are computed only in Python.
+
+### Preparation
+
+1. One service, `repeats.prepare_repeat_job`, sits behind both buttons. From a subscription's page, `repeats.prepare_repeat_job_for_subscription` first refuses an ended subscription and then calls it for the latest job of the subscription's line. The service refuses, in this order, a job whose purpose is not Client report, a job that is not Complete, a job without a final report with listed competitors, a job that an open repeat job already follows, and a subscription without a due date left.
+2. A repeat job copies the organization, the target address and point, the point's source, every lookup field, the search settings, the own competitor resolved through merges, and the assigned researcher. Its point is unconfirmed, it is Draft with the purpose Client report, the preparing user is its creator, and it has no selection, contact, or report. The address is never looked up and no request is sent.
+3. A repeat of the latest job of a running subscription's line serves the earliest due date that no serving job that is not Cancelled serves, recorded as a `ServingJob`. A repeat of any other job serves no due date.
+4. Everything runs in one transaction, and every refusal comes before anything is written. Job rows are locked before subscription rows, in preparation, in the reopening rule, and in subscription validation, so no two transactions wait on each other in a cycle.
+
+### Repeat rules
+
+1. The partial unique constraint `one_open_repeat_per_research_job` keeps at most one repeat job that is not Cancelled per job.
+2. `jobs.change_status` refuses cancelling a job that an open repeat job follows, reopening a Cancelled repeat job while another repeat of its predecessor is open, and reopening a Cancelled repeat job whose predecessor is Cancelled, so a line of repeat jobs only ever shortens from its end.
+3. `jobs.change_status` sends `signals.job_status_changing` with the locked job before storing a new status. The subscriptions app's receiver, connected in its `apps.py`, refuses reopening a Cancelled serving job while another serving job that is not Cancelled serves its due date, or while its due date lies after the subscription's end date.
+
+### Due dates
+
+1. Due dates are fixed from the start date: round N is the start date plus N times the cadence's months, on the month's last day when the start date's day does not exist in it. Dates after the end date do not exist.
+2. A due date is delivered when a serving job that is not Cancelled serves it and has a final report. The next due date is the earliest due date not delivered.
+3. The due state is Overdue when the next due date lies before today and Due soon from today to `DUE_SOON_DAYS` (14) days after. Today is the local date when the page loads.
+4. Nothing happens because a date arrives: no command, scheduler, or reminder runs, and nothing is sent.
+
+### Permissions
+
+1. `Subscription` has the permissions add, change, view, and `prepare_repeat_job`. Adding and changing subscriptions stays with the superuser; researchers view them read-only.
+2. Preparing needs `subscriptions.prepare_repeat_job`, `research.add_researchjob`, and the research job admin's view permission, checked on every post; the service checks every rule again.
+3. The starting job, cadence, and start date become read-only once a serving job of the subscription exists; the end date stays editable within its limits. `lifecycle.validate_subscription` checks every change, from the form's `clean` and again when saving.
+
+### Permanent records
+
+Subscriptions are never deleted: the admin refuses deletion for every user, and `Subscription.delete` and the queryset's `delete` raise `PermanentRecordError`. Serving jobs follow the guards of reports and have no admin page.
+
+### Logging
+
+Preparing logs "Research job <id> prepared as a repeat of research job <id>", or the same followed by "for subscription <id>, due <date>". Saving a subscription logs "Subscription <id> created" or "Subscription <id> changed". The records hold numbers and dates only; refusals are not logged.
+
+### Queries
+
+1. A repeat report's changes section adds at most five queries to its build, whatever the number of competitors, proven by `tests/reports/test_changes.py`.
+2. The call sheet's history adds no query: the current values and the history come from one query of observations, proven by `tests/research/test_value_history.py`.
+3. The Subscriptions list runs a fixed number of queries, proven by `tests/subscriptions/test_admin.py`.
 
 ## Commands
 
@@ -269,7 +329,7 @@ Each command has exactly one form, used the same way in `CLAUDE.md`, `.claude/se
 6. `tests/demographics/shapefiles.py` writes a minimal polygon shapefile with a NAD83 projection into a zip, so the boundary tests run GDAL on synthetic areas instead of the 67 MB national file.
 7. `tests/admin_forms.py` builds the data an admin change page posts, its main form and inline formsets included, and `tests/research/call_sheet_posts.py` does the same for the call sheet.
 8. django-stubs declares `ModelAdmin`, `TabularInline`, and `ModelForm` generic, but those classes cannot be subscripted at runtime. Each `admin.py` therefore defines its parameterized base classes under `if TYPE_CHECKING:` and the plain classes otherwise, which keeps strict typing without a runtime dependency or `type: ignore` comments.
-9. Layout inspection renders reports and teasers to check how they look. `tests/reports/test_layout_inspection.py` is marked `layout_inspection`, which `addopts` deselects, so the normal run skips it. It generates four reports on synthetic data in the test database in one test, and six teasers in a parametrized test, one transaction per teaser case so no case counts another's competitors. The teaser cases are a dense market of 74 competitors with long names, a 255-character organization name, and long contact settings; one competitor; a target outside every tabulation area; no Census vintage; unpublished and incomplete capacities; and an own competitor with home-based kinds. It copies the PDFs into `scratch/report-inspection/`, the teasers as `teaser-<case>.pdf`, where they remain:
+9. Layout inspection renders reports and teasers to check how they look. `tests/reports/test_layout_inspection.py` is marked `layout_inspection`, which `addopts` deselects, so the normal run skips it. It generates four reports on synthetic data in the test database in one test, six teasers in a parametrized test, one transaction per teaser case so no case counts another's competitors, and two repeat reports, `repeat-dense-market` and `repeat-nothing-verified-again`, in a parametrized test with one transaction per case. The teaser cases are a dense market of 74 competitors with long names, a 255-character organization name, and long contact settings; one competitor; a target outside every tabulation area; no Census vintage; unpublished and incomplete capacities; and an own competitor with home-based kinds. It copies the PDFs into `scratch/report-inspection/`, the teasers as `teaser-<case>.pdf` and the repeat reports as `<case>.pdf`, where they remain:
 
     ```powershell
     docker compose run --rm web pytest -m layout_inspection tests/reports/test_layout_inspection.py
