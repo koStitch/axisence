@@ -8,7 +8,9 @@ Django, its tests, every `manage.py` command, and mypy run only inside the `web`
 
 The `db` service runs PostgreSQL with PostGIS. Both services publish their ports on 127.0.0.1 only.
 
-Version numbers live only in the project files: `.python-version`, `pyproject.toml`, `uv.lock`, `compose.yaml`, and `Dockerfile`.
+Version numbers live only in the project files: `.python-version`, `pyproject.toml`, `uv.lock`, `compose.yaml`, `compose.live.yaml`, and `Dockerfile`.
+
+The development copy described here runs on the developer's PC. A second checkout, the live copy, holds the shared data that the user and the teammate work in; "Live copy" below describes it.
 
 ## Set up on Windows 11
 
@@ -89,9 +91,204 @@ Version numbers live only in the project files: `.python-version`, `pyproject.to
 
 `docker compose run --rm` works whether or not `web` is running, and starts `db` when needed. Starting the services never applies migrations; `migrate` is always run explicitly. After a dependency change, rebuild the image with `docker compose build`.
 
+## Live copy
+
+The live copy is the one Axisence database that the user and the teammate share. It runs on the user's PC and is reached from anywhere through a Cloudflare Tunnel behind Cloudflare Access, on Cloudflare's free plans. In this section, `<live hostname>` is the tool's address, for example `app.<the tool's domain>`, and `E:` stands for the backup drive's letter.
+
+### How the two copies relate
+
+1. The live copy is a second checkout of this repository at `C:\Work\axisence-live`. It holds all real work of both people: research jobs, contacts, observations, reports, teasers, and subscriptions.
+2. The development copy at `C:\Work\axisence` holds scratch data only.
+3. Changes reach the live copy only through a release, described in "Releasing changes". Nothing in one copy reaches the other: each has its own database volume, its own reports, and its own raw downloads.
+4. In the live folder, every command of "Everyday commands" works unchanged, because its `.env` sets `COMPOSE_FILE=compose.live.yaml`. Its Compose project is `axisence-live`, with the services `db`, `web`, and `tunnel`.
+5. The live copy publishes no port. Both people, the user included, reach it only at `https://<live hostname>/admin/`, through Cloudflare Access.
+6. Because the commands are identical in both folders, a destructive one, such as `docker compose down -v`, run in the live folder destroys the shared database. Check the folder before any such command.
+
+### Before setting it up
+
+In Cloudflare, in this order:
+
+1. Create a Cloudflare account and register a domain of the tool's own with Cloudflare Registrar. It becomes a Cloudflare zone. Because the domain serves nothing but the tool, the DNS of the website and the email stays untouched.
+2. In the zone, under SSL/TLS, Edge Certificates, turn on Always Use HTTPS.
+3. Open Zero Trust, choose a team name, and choose the Free plan.
+4. Under Access, add a self-hosted application for `<live hostname>` with one Allow policy that includes the user's and the teammate's email addresses, and the One-time PIN login method. Create it before the tunnel's route, so the hostname is never reachable without Access.
+5. Under Networks, Tunnels, create a Cloudflared tunnel named `axisence-live`, choose Docker as the environment, and copy the token: the long string after `--token` in the command shown. Do not run that command; the live stack runs the connector.
+6. Add the tunnel's route for `<live hostname>` to the service `HTTP` `web:8000`, and in its HTTP settings set HTTP Host Header to `<live hostname>`.
+
+Expected: the tunnel shows as inactive or down until the live stack starts.
+
+On the PC:
+
+1. Docker Desktop, Settings, General: turn on starting Docker Desktop at sign-in.
+2. Windows power settings: no sleep while plugged in, at least during the teammate's working hours.
+3. Turn on BitLocker on the system drive and BitLocker To Go on the backup drive. Create the folders `E:\Axisence\move` and `E:\Axisence\live`.
+
+### Setting up the live copy
+
+1. Clone the repository into the live folder and create its `.env`:
+
+    ```powershell
+    git clone https://github.com/koStitch/axisence.git C:\Work\axisence-live
+    cd C:\Work\axisence-live
+    Copy-Item .env.example .env
+    ```
+
+2. In the new `.env`:
+    1. Uncomment `COMPOSE_FILE=compose.live.yaml`.
+    2. Set `DJANGO_DEBUG=false`, `DJANGO_ALLOWED_HOSTS=<live hostname>`, `DJANGO_BEHIND_HTTPS_PROXY=true`, and `CLOUDFLARE_TUNNEL_TOKEN=<the tunnel's token>`.
+    3. Replace `DJANGO_SECRET_KEY` and `POSTGRES_PASSWORD` with new long random values, printed by the command of "Set up on Windows 11", step 3.
+    4. Copy `CENSUS_API_KEY`, `SOCRATA_APP_TOKEN`, `AXISENCE_WEBSITE_URL`, `AXISENCE_CONTACT_EMAIL`, and `AXISENCE_CONTACT_PHONE` from the development copy's `.env`.
+    5. Keep every other value of the template.
+3. Check that Compose reads the live file, then build the image:
+
+    ```powershell
+    docker compose config --services
+    docker compose build
+    ```
+
+    Expected: these three lines, then a successful build:
+
+    ```text
+    db
+    web
+    tunnel
+    ```
+
+    Any other list means `COMPOSE_FILE` is not in effect: fix `.env` before going on.
+
+### Moving the development data into it
+
+This fills a fresh live copy once, from the development copy. The backup drive must be connected.
+
+1. Back the development copy up, from its own folder:
+
+    ```powershell
+    cd C:\Work\axisence
+    docker compose up -d
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\back-up-data.ps1 -Copy Development -Destination E:\Axisence\move
+    ```
+
+    ```text
+    <date> <time> Development backup succeeded: database\axisence-<timestamp>.dump (<bytes> bytes); new reports and raw downloads copied.
+    ```
+
+2. Restore it into the live copy, apply the migrations, check the deployment settings, and start the live stack:
+
+    ```powershell
+    cd C:\Work\axisence-live
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore-data.ps1 -Source E:\Axisence\move
+    docker compose run --rm web python manage.py migrate
+    docker compose run --rm web python manage.py check --deploy
+    docker compose up -d
+    docker compose ps
+    ```
+
+    Expected: the restore prints
+
+    ```text
+    Restored axisence-<timestamp>.dump. Next: docker compose run --rm web python manage.py migrate, then docker compose up -d.
+    ```
+
+    `migrate` reports `No migrations to apply.`, and `check --deploy` reports one issue only:
+
+    ```text
+    System check identified some issues:
+
+    WARNINGS:
+    ?: (security.W021) You have not set the SECURE_HSTS_PRELOAD setting to True. Without this, your site cannot be submitted to the browser preload list.
+
+    System check identified 1 issue (0 silenced).
+    ```
+
+    The warning stays: preloading would commit the tool's domain to the browsers' built-in lists. `docker compose ps` lists `db`, `web`, and `tunnel` running, and the tunnel shows Healthy in Cloudflare.
+
+3. Check the access:
+    1. In a private browser window, open `https://<live hostname>/admin/`. Expected: Cloudflare Access's sign-in page, not Axisence's.
+    2. Sign in with the user's email address and the emailed code, then with the administrator account, which moved with the data. Expected: the same research jobs, contacts, and reports as in the development copy, and a report downloads. A browser error about too many redirects means Django does not see that the request came over HTTPS: give the error to the developer.
+    3. In another private window, try an email address that is not listed. Expected: Access refuses it.
+
+The restore runs in one transaction, so when it fails, nothing was written. Keep its error message, give it to the developer, and stop. A `CONTEXT:` line of the message can quote a row of the backup, such as call notes: leave such a line out. It also refuses a live copy that already holds data: a database with Django's migration table, or any file under `data\private\reports` or `data\raw`.
+
+### Accounts
+
+1. Every person signs in twice: first to Cloudflare Access, with their email address and the code Cloudflare emails to it, then to Axisence with their own account.
+2. The teammate gets a researcher account: follow "Researcher accounts" in the live admin at `https://<live hostname>/admin/`. Then send the teammate that address and the username.
+3. A person needs both an email address in the Access application's Allow policy and an Axisence account. Removing either one ends their access.
+
+### Releasing changes
+
+A release brings what is on GitHub's `main` to the live copy. After pushing to `main`:
+
+```powershell
+cd C:\Work\axisence-live
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\release-live-copy.ps1 -BackupDestination E:\Axisence\live
+```
+
+Expected, as its last line:
+
+```text
+The live copy now runs <commit> <commit subject>.
+```
+
+1. The release backs the live copy up first, and releases nothing when the backup fails.
+2. It refuses to run when the live folder has local changes or is not on `main`: the live checkout always matches GitHub's `main` exactly, and nothing is changed there by hand.
+3. It fast-forwards the checkout, builds the image, applies the migrations, and recreates `web`, which interrupts the live copy for a few seconds.
+4. Add every variable that a change adds to `.env.example` to the live `.env` before the release. A missing required one stops the release at `migrate` with an error naming it; set it and run the release again.
+
+### Backups
+
+The backup drive must be connected whenever a backup runs.
+
+1. Back the live copy up by hand:
+
+    ```powershell
+    cd C:\Work\axisence-live
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\back-up-data.ps1 -Destination E:\Axisence\live
+    ```
+
+    ```text
+    <date> <time> Live backup succeeded: database\axisence-<timestamp>.dump (<bytes> bytes); new reports and raw downloads copied.
+    ```
+
+2. The backup folder holds:
+
+    ```text
+    E:\Axisence\live\
+      database\axisence-<yyyyMMdd-HHmmss>.dump   the newest 30 database dumps
+      reports\      every report and teaser file, never pruned
+      raw\          every raw download, never pruned
+      backup-log.txt
+    ```
+
+    Every run appends its outcome to `backup-log.txt`: the line above, or `backup failed:` with the reason. The script never creates the backup folder itself, so a disconnected drive fails the backup instead of writing it elsewhere.
+
+3. Register the daily backup once, in PowerShell:
+
+    ```powershell
+    $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -File "C:\Work\axisence-live\scripts\back-up-data.ps1" -Destination "E:\Axisence\live"'
+    $trigger = New-ScheduledTaskTrigger -Daily -At 13:00
+    $taskSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+    Register-ScheduledTask -TaskName 'Axisence live backup' -Action $action -Trigger $trigger -Settings $taskSettings
+    ```
+
+    Expected: Task Scheduler lists "Axisence live backup". It runs only while the user is signed in, as Docker Desktop requires, and catches up as soon as it can after a missed time.
+
+4. Check `E:\Axisence\live\backup-log.txt` weekly. A missed or failed backup shows only there and in Task Scheduler's last run result.
+5. A backup restores into a fresh live copy only: one whose database has never been migrated and whose `data\private\reports` and `data\raw` hold no files, such as a new checkout set up as in "Setting up the live copy". Restore it as in "Moving the development data into it", step 2, with `-Source E:\Axisence\live`. `-DumpFileName axisence-<timestamp>.dump` restores an older dump than the newest.
+
+### When the live copy cannot be reached
+
+1. The PC must be on, signed in, awake, and online, with Docker Desktop running. A Windows Update restart stops the live copy until the user signs in again.
+2. In the live folder, `docker compose ps` lists `db`, `web`, and `tunnel` running.
+3. `docker compose logs tunnel` and `docker compose logs web` show the cause.
+4. In Cloudflare Zero Trust, under Networks, Tunnels, the tunnel shows Healthy while it is connected.
+5. A report that takes longer than 125 seconds shows Cloudflare's timeout page in the browser, but it still completes: reload the job's page, and it appears in the Reports section.
+
 ## Data pipeline
 
 Five commands load public data into the local database: licensed providers from both regulators, Census demographics, tabulation-area boundaries, and MTA transit stops. Each run is recorded in the admin under Ingestion. Every download is saved unchanged under the git-ignored `data/raw/` before anything parses it, and the pipeline never modifies or deletes a saved download. Disk use is about 6 MB per NY State run, 0.6 MB per NYC Health run, 48 MB per Census vintage, 67 MB per boundary download, and about 60 MB on a first transit run, then only the feeds the MTA has republished. The folder is pruned by hand only.
+
+The live copy runs the same commands in its own folder, and its reports read its own data.
 
 ### Before the first run
 
@@ -326,7 +523,7 @@ Researchers run research jobs in the admin, under Research. A job looks its targ
 
 ### Researcher accounts
 
-Each researcher has an account of their own.
+Each researcher has an account of their own. In the live copy, the admin is at `https://<live hostname>/admin/`.
 
 1. Log in at http://127.0.0.1:8000/admin/ as the administrator.
 2. Under Accounts, open Users and choose "Add user".
@@ -398,7 +595,7 @@ A report is a client's competitor analysis as a PDF, generated from a research j
 
 ### Report files
 
-1. Reports are stored as `data/private/reports/report-<N>.pdf`, which git ignores. They are confidential client documents: the application never deletes or overwrites them, and nothing backs them up. Back the folder up and prune it by hand.
+1. Reports are stored as `data/private/reports/report-<N>.pdf`, which git ignores. They are confidential client documents: the application never deletes or overwrites them. The live copy's backups copy them to the backup drive, as "Backups" under "Live copy" describes; the development copy's reports are not backed up. The folder is pruned by hand only.
 2. Downloading a report whose file was pruned shows "The file of report #N is no longer stored." and returns to the previous page.
 3. After the local database is reset, report numbers start again at 1. Move the old files out of `data/private/reports/` first: a generation whose file name already exists fails with "The report could not be generated.", or "The teaser could not be generated." for a teaser.
 
@@ -546,7 +743,7 @@ A subscription records a client's standing order for a repeat report every quart
 
 ### Adding a subscription
 
-1. Log in at http://127.0.0.1:8000/admin/ as the administrator. Under Subscriptions, open Subscriptions and choose "Add subscription".
+1. Log in at http://127.0.0.1:8000/admin/, or at `https://<live hostname>/admin/` in the live copy, as the administrator. Under Subscriptions, open Subscriptions and choose "Add subscription".
 2. Choose the starting job: a Complete client report job with a final report, the latest job of its line. Choose the cadence, the start date, usually the day the starting job's final report reached the client, and an optional end date.
 3. Choose "Save and continue editing". Expected: the subscription's page opens with "The subscription “Subscription #`<S>`” was added successfully. You may edit it again below.", and shows its next due date.
 

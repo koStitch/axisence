@@ -1,5 +1,7 @@
+# The development copy. compose.live.yaml defines the live copy.
 services:
   db:
+    # The same image as compose.live.yaml; change both together.
     image: postgis/postgis:18-3.6
     env_file: .env
     ports:

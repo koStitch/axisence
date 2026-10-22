@@ -1,5 +1,5 @@
 """Fixtures every test gets: no network, no real secrets or contact details, no writes
-into data/raw/ or data/private/reports/.
+into data/raw/, data/private/reports/, or staticfiles/.
 """
 
 import pytest
@@ -18,6 +18,15 @@ def raw_data_directory(settings, tmp_path):
 def report_directory(settings, tmp_path):
     settings.REPORT_DIRECTORY = tmp_path / "reports"
     return settings.REPORT_DIRECTORY
+
+
+@pytest.fixture(autouse=True)
+def static_root(settings, tmp_path):
+    # WhiteNoise warns at startup when STATIC_ROOT does not exist, and collectstatic
+    # must never write into the repository.
+    settings.STATIC_ROOT = tmp_path / "static"
+    settings.STATIC_ROOT.mkdir()
+    return settings.STATIC_ROOT
 
 
 @pytest.fixture(autouse=True)

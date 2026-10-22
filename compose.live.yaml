@@ -1,0 +1,54 @@
+# The live copy: the shared database the user and the teammate work in, published only
+# through a Cloudflare tunnel behind Cloudflare Access. It runs from its own checkout,
+# whose .env sets COMPOSE_FILE=compose.live.yaml, so the everyday commands in README.md
+# work unchanged there. No service publishes a port.
+name: axisence-live
+
+services:
+  db:
+    # The same image as compose.yaml; change both together.
+    image: postgis/postgis:18-3.6
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      # From PostgreSQL 18 the image keeps its data under /var/lib/postgresql/18/docker,
+      # so the volume is mounted at /var/lib/postgresql, never /var/lib/postgresql/data.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      # TCP on 127.0.0.1 rather than the Unix socket: during first initialization the image
+      # runs a temporary server that listens only on the socket.
+      test: pg_isready --host=127.0.0.1 --username="$${POSTGRES_USER}" --dbname="$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  web:
+    build: .
+    env_file: .env
+    # Collects static files for WhiteNoise, then runs gunicorn. The timeout exceeds
+    # Cloudflare's 125-second limit, so a slow report still completes after the browser
+    # has given up. Starting the services never applies migrations.
+    command:
+      - sh
+      - -c
+      - python manage.py collectstatic --noinput --verbosity 0 && exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 300
+    init: true
+    restart: unless-stopped
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.0
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in .env}
+    restart: unless-stopped
+    depends_on:
+      - web
+
+volumes:
+  postgres-data:

@@ -39,7 +39,7 @@ When authoring or reviewing Python, consult the `django-python` skill under `.cl
 Claude may run, without asking:
 
 1. Tests, `ruff check`, `ruff format`, and type checks.
-2. `manage.py` commands against the local Docker database, in the form `docker compose run --rm web python manage.py <command>`: `check`, `makemigrations`, `migrate`, `showmigrations`, and the project's own management commands.
+2. `manage.py` commands against the development copy's local Docker database, in the form `docker compose run --rm web python manage.py <command>`: `check`, `makemigrations`, `migrate`, `showmigrations`, and the project's own management commands.
 3. `docker compose up -d`, `build`, `ps`, `logs`, and `stop`.
 4. Read-only requests to the public data APIs named in `Docs/Domain/DataSources.md`, at modest volume, for exploration and development.
 
@@ -53,6 +53,7 @@ Claude must not:
 6. Edit a migration that is already committed. Write a new migration instead. Migrations created by the current, uncommitted work may be edited or regenerated.
 7. Contact real third parties: no emails, calls, form submissions, or bulk crawling of provider websites. Building tooling that does this is fine; running it against real recipients is the user's decision, every time.
 8. Put personal data anywhere it can leak. Call lists, contact names, emails, phone numbers, call notes, and research target addresses concern real people. Call lists and other personal files live under `data/private/`, which is git-ignored. Call notes live only in the notes field of research contacts in the local database, which never records a name, email, or phone number of a person, and appear only on the call sheet and on the contact's own admin page. None of this personal data ever appears in fixtures, tests, documentation, logs, error messages, or reports. Tests use synthetic data.
+9. Operate the live copy. It is the second checkout at `C:\Work\axisence-live`, the Compose project `axisence-live` of `compose.live.yaml`, and it holds the real shared data. Never run a command in that folder or against that project (`-f compose.live.yaml`, `--file compose.live.yaml`, `-p axisence-live`, `--project-name axisence-live`), never read or edit anything in that folder, and never run `scripts/back-up-data.ps1`, `scripts/restore-data.ps1`, or `scripts/release-live-copy.ps1`. Writing and reviewing them in the development checkout is fine; running them is the user's act, every time.
 
 These boundaries are enforced by permission rules and hooks in `.claude/settings.json`. Enforcement is a safety net, not a substitute for following the rules: the deny rules match tools and command prefixes, so a differently spelled shell command can slip past them. Every prohibition above applies to every tool, the shell included.
 

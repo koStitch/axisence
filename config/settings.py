@@ -16,6 +16,22 @@ DEBUG = environment.read_boolean("DJANGO_DEBUG", default=False)
 
 ALLOWED_HOSTS = environment.read_list("DJANGO_ALLOWED_HOSTS", default=[])
 
+# The live copy runs behind a Cloudflare tunnel, which terminates HTTPS and always
+# overwrites X-Forwarded-Proto. Nothing else reaches its application server, so Django
+# can trust that header there. The development copy leaves all of this off.
+behind_https_proxy = environment.read_boolean(
+    "DJANGO_BEHIND_HTTPS_PROXY", default=False
+)
+SECURE_PROXY_SSL_HEADER = (
+    ("HTTP_X_FORWARDED_PROTO", "https") if behind_https_proxy else None
+)
+SECURE_SSL_REDIRECT = behind_https_proxy
+SESSION_COOKIE_SECURE = behind_https_proxy
+CSRF_COOKIE_SECURE = behind_https_proxy
+# One year. The tool's domain serves nothing else, so its subdomains are covered too.
+SECURE_HSTS_SECONDS = 31_536_000 if behind_https_proxy else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = behind_https_proxy
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -38,6 +54,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -120,6 +137,10 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+
+# collectstatic gathers static files here, and WhiteNoise serves them when DEBUG is off.
+# The live copy collects them on every start; git-ignored.
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 LOGGING = {
     "version": 1,

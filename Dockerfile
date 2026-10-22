@@ -1,8 +1,9 @@
-# Image for the Compose web service: Python, the GDAL, GEOS, and PROJ libraries that
-# GeoDjango loads, the Pango and HarfBuzz libraries and the Inter font that WeasyPrint
-# renders reports with, poppler-utils for turning report pages into images during
-# layout inspection, and the project environment exactly as uv.lock pins it. It never
-# contains source code: compose.yaml bind-mounts the repository at /app.
+# Image for the web service of both Compose files, compose.yaml and compose.live.yaml:
+# Python, the GDAL, GEOS, and PROJ libraries that GeoDjango loads, the Pango and HarfBuzz
+# libraries and the Inter font that WeasyPrint renders reports with, poppler-utils for
+# turning report pages into images during layout inspection, and the project environment
+# exactly as uv.lock pins it. It never contains source code: each copy bind-mounts its
+# own checkout at /app.
 FROM python:3.14-slim-trixie
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /bin/uv

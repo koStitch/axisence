@@ -1,24 +1,26 @@
 # Project Architecture
 
-How Axisence runs: what runs on the Windows host and what runs in containers, the Compose services, the package map, settings, the data pipeline, the research tool, the report and teaser generator, subscriptions and repeat jobs, commands, and the test and type-checking setup.
+How Axisence runs: what runs on the Windows host and what runs in containers, the Compose services, the live copy, the package map, settings, the data pipeline, the research tool, the report and teaser generator, subscriptions and repeat jobs, commands, and the test and type-checking setup.
 
 ## Host and container
 
-GeoDjango loads the GDAL and GEOS native libraries when Django starts. Installing them for native Windows Python is fragile and specific to one machine, so they come from Debian packages in the `web` image instead. That keeps the setup reproducible and matches a later container deployment.
+GeoDjango loads the GDAL and GEOS native libraries when Django starts. Installing them for native Windows Python is fragile and specific to one machine, so they come from Debian packages in the `web` image instead. That keeps the setup reproducible, and the live copy runs the same image.
 
 | Runs on | What |
 | --- | --- |
-| Windows host | `uv`, for the host environment and the dependencies; ruff; git; the editor. |
+| Windows host | `uv`, for the host environment and the dependencies; ruff; git; the editor; the live copy's PowerShell scripts under `scripts/`. |
 | `web` container | Django, every `manage.py` command, pytest, and mypy. |
 
 1. Compose bind-mounts the repository root at `/app`, so files the container writes, such as generated migrations, appear in the working tree at once.
 2. The container's environment lives in `/opt/venv`, outside the bind mount, and comes first on `PATH`, so `python`, `pytest`, and `mypy` resolve to it. The host `.venv` serves only the editor and ruff; the two environments never share a directory.
 3. `Dockerfile` builds the image. It installs the dependencies exactly as `uv.lock` pins them. The build fails when `uv.lock` does not match `pyproject.toml`, or when the base image's Python does not match `.python-version`.
 4. The image also holds what reports need, for the same reason: Pango and HarfBuzz's subsetting library, which WeasyPrint loads to lay out text and embed font subsets; the Inter font, in which reports are set; and poppler-utils, whose `pdftoppm`, `pdffonts`, and `pdfinfo` turn report pages into images and list their fonts and metadata during layout inspection.
-5. The image never contains source code, data, secrets, or the host environment: `.dockerignore` admits only `.python-version`, `pyproject.toml`, and `uv.lock`.
+5. The image never contains source code, data, secrets, or the host environment: `.dockerignore` admits only `.python-version`, `pyproject.toml`, and `uv.lock`. Both copies, development and live, bind-mount their own checkout at `/app`, so each runs its own code on the same image definition.
 6. File access across the boundary between Windows and the Linux virtual machine in which Docker Desktop runs containers is slower than native access. At the current size this costs seconds; the approach is revisited only if the test suite becomes measurably slow.
 
 ## Compose services
+
+Two Compose files define two independent stacks, each run from its own checkout. The development stack of `compose.yaml`, Compose project `axisence`, named after its folder:
 
 | Service | Image | Published port | Role |
 | --- | --- | --- | --- |
@@ -28,7 +30,24 @@ GeoDjango loads the GDAL and GEOS native libraries when Django starts. Installin
 1. Compose passes the variables in `.env` to both services. Python never reads `.env` itself.
 2. Both ports are published on the loopback interface only, which keeps the database and the development server off the network.
 3. The PostGIS image reads `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` on its first start and creates the database and its superuser, so each credential is defined once.
-4. Starting the services never applies migrations; `migrate` is always an explicit command.
+
+### Live copy
+
+The live copy is the shared database that the user and the teammate work in. It runs the live stack of `compose.live.yaml`, Compose project `axisence-live`, from a second checkout at `C:\Work\axisence-live` on the user's PC, and is published only through a Cloudflare Tunnel behind Cloudflare Access. The README's "Live copy" section holds its setup and operation.
+
+| Service | Image | Published port | Role |
+| --- | --- | --- | --- |
+| `db` | The same PostGIS image as `compose.yaml` | none | PostgreSQL with PostGIS, as in development, with its own volume: `postgres-data` of the live project. |
+| `web` | Built from `Dockerfile` | none | Runs `collectstatic`, then gunicorn with three synchronous workers and a 300-second timeout. Starts after `db` reports healthy. |
+| `tunnel` | `cloudflare/cloudflared`, pinned in `compose.live.yaml` | none | Connects outward to Cloudflare and forwards the requests for the live hostname to `http://web:8000`. The route and its HTTP Host Header, the live hostname, are configured in the Cloudflare dashboard. |
+
+1. The live `.env` sets `COMPOSE_FILE=compose.live.yaml`, and the top-level `name:` fixes the project name, so the live folder's commands are the everyday ones and its volume never mixes with the development one.
+2. No service publishes a port. Cloudflare Access admits only the listed email addresses before a request reaches the tunnel.
+3. Every live service restarts unless stopped, so the stack returns when Docker Desktop starts.
+4. The 300-second timeout exceeds Cloudflare's 125-second limit, so a slow generation completes even when the browser shows Cloudflare's timeout page.
+5. `CLOUDFLARE_TUNNEL_TOKEN` reaches the `tunnel` service through interpolation; `env_file` passes the whole `.env` to `db` and `web`, as in development.
+6. The `db` image is identical in both files.
+7. Starting the services never applies migrations in either copy; `migrate` is always an explicit command.
 
 ## Package map
 
@@ -46,7 +65,16 @@ GeoDjango loads the GDAL and GEOS native libraries when Django starts. Installin
 | `axisence.subscriptions` | Subscriptions and repeat jobs. Models `Subscription` and `ServingJob`. `schedule.py` computes due dates, due states, and progress; `lines.py` follows lines of repeat jobs; `lifecycle.py` validates and saves subscriptions; `repeats.py` prepares repeat jobs and refuses reopening served due dates; `forms.py`, `admin.py`, and `views.py` hold the pages and the research job page's repeat additions. It depends on `reports` and `research`, and no other app imports it. |
 | `tests` | The test suite, mirroring the packages above. |
 
-Every Django app is a subpackage of `axisence`, for example `axisence.providers`, and is listed in `INSTALLED_APPS` in `config/settings.py`. `django.contrib.postgres`, which ships with Django, is installed too, for the array of provider kinds a research job searches. The admin at `/admin/` is the only URL.
+Every Django app is a subpackage of `axisence`, for example `axisence.providers`, and is listed in `INSTALLED_APPS` in `config/settings.py`. `django.contrib.postgres`, which ships with Django, is installed too, for the array of provider kinds a research job searches. The admin at `/admin/` is the only URL Django routes. WhiteNoise's middleware, directly after the security middleware, serves `/static/` in front of it, from `STATIC_ROOT` when `DEBUG` is off.
+
+`scripts/` holds the user's PowerShell scripts for the live copy. They are invoked with `powershell -NoProfile -ExecutionPolicy Bypass -File`, run under Windows PowerShell 5.1, and contain ASCII characters only, because Windows PowerShell 5.1 reads a file without a byte order mark in the ANSI code page.
+
+1. `common.ps1`: the helpers the other three dot-source: running a native command and failing on a non-zero exit code; copying new and changed files with robocopy, leaving out `.part` files and never deleting any; and recognizing the live folder by the line `COMPOSE_FILE=compose.live.yaml` in its `.env`.
+2. `back-up-data.ps1`: backs one copy up to a folder: a custom-format `pg_dump` of its database, then every new report file and raw download. The dump leaves out the four extensions that the PostGIS image installs into every new database, and their schemas `tiger`, `tiger_data`, and `topology`, so that it restores into a fresh database of the image. It keeps the newest 30 dumps, never prunes files, and appends its outcome to `backup-log.txt`. `-Copy Development` backs up the development copy, from its own folder.
+3. `restore-data.ps1`: restores such a backup into a fresh live copy only, in one transaction, then copies the files. It refuses a database that has Django's migration table, and a `data/private/reports/` or `data/raw/` that holds files.
+4. `release-live-copy.ps1`: checks that the live checkout is clean and on `main`, backs up, fast-forwards from GitHub, builds, migrates, and recreates `web`, because gunicorn loads the code only once.
+
+A backup moves `data/raw/` with the database, because snapshot records hold paths relative to `RAW_DATA_DIRECTORY` and a transit run sends a feed's ETag only while its latest snapshot is on disk. Report numbers come from the primary-key sequence of the report table, which the dump carries, so a restored copy continues the numbering.
 
 ## Settings and environment variables
 
@@ -64,6 +92,7 @@ Every Django app is a subpackage of `axisence`, for example `axisence.providers`
 | `DJANGO_DEBUG` | no | false | `DEBUG` |
 | `DJANGO_ALLOWED_HOSTS` | no | empty list | `ALLOWED_HOSTS`, comma-separated |
 | `DJANGO_LOG_LEVEL` | no | `INFO` | Console logging level for every logger, Django's own included, except Django's SQL logger, which stays at `INFO` |
+| `DJANGO_BEHIND_HTTPS_PROXY` | no | false | Django's HTTPS settings for running behind the tunnel; see below |
 | `POSTGRES_HOST` | yes | none | Database host; `db` under Compose |
 | `POSTGRES_PORT` | no | `5432` | Database port |
 | `POSTGRES_DB` | yes | none | Database name; also read by the PostGIS image |
@@ -74,10 +103,14 @@ Every Django app is a subpackage of `axisence`, for example `axisence.providers`
 | `AXISENCE_WEBSITE_URL` | no | empty | Axisence's website in the teaser's call to action; must start with `https://` |
 | `AXISENCE_CONTACT_EMAIL` | no | empty | Axisence's email address in the teaser's call to action |
 | `AXISENCE_CONTACT_PHONE` | no | empty | Axisence's phone number in the teaser's call to action, printed as written |
+| `CLOUDFLARE_TUNNEL_TOKEN` | live copy only | empty | The tunnel's token; read by `compose.live.yaml`, never by Django |
+| `COMPOSE_FILE` | live copy only | unset | `compose.live.yaml` in the live copy; read by Compose, never by Django |
 
-Generating a teaser refuses while any of the three is blank; the refusal names the blank variables.
+Generating a teaser refuses while any of the three `AXISENCE_` variables is blank; the refusal names the blank variables.
 
-Values that are not environment-specific are fixed in code: the PostGIS database engine, `USE_TZ = True`, `TIME_ZONE = "America/New_York"`, `RAW_DATA_DIRECTORY`, the `data/raw/` directory of the repository, and `REPORT_DIRECTORY`, the git-ignored `data/private/reports/` directory that holds generated reports and teasers.
+`DJANGO_BEHIND_HTTPS_PROXY=true` turns on six settings together: `SECURE_PROXY_SSL_HEADER`, which trusts `X-Forwarded-Proto: https`; `SECURE_SSL_REDIRECT`; secure session and CSRF cookies; and HSTS for one year, subdomains included. One variable switches all of them, because values that disagree are a silent weakness or a redirect loop. The header is trustworthy only in the live copy: Cloudflare sets `X-Forwarded-Proto` to the protocol the visitor used, overwriting any value the client sent, and nothing but the tunnel reaches gunicorn. `SECURE_HSTS_PRELOAD` stays unset, so `check --deploy` reports `security.W021`; preloading would commit the domain to the browsers' built-in lists. The development copy leaves the variable unset.
+
+Values that are not environment-specific are fixed in code: the PostGIS database engine, `USE_TZ = True`, `TIME_ZONE = "America/New_York"`, `RAW_DATA_DIRECTORY`, the `data/raw/` directory of the repository, `REPORT_DIRECTORY`, the git-ignored `data/private/reports/` directory that holds generated reports and teasers, and `STATIC_ROOT`, the git-ignored `staticfiles/` directory that `collectstatic` fills and WhiteNoise serves.
 
 ## Data pipeline
 
@@ -334,22 +367,32 @@ Each command has exactly one form, used the same way in `CLAUDE.md`, `.claude/se
 
 `docker compose run --rm` works whether or not `web` is running, starts `db` when needed, and costs a container start of a few seconds per command. The provider commands also take `--snapshot PATH` and `--allow-mass-disappearance`, and `ingest_mta_transit` takes `--from-latest-snapshots` and `--allow-mass-disappearance`; the README describes when to use them.
 
+In the live folder the same commands apply unchanged, because its `.env` sets `COMPOSE_FILE=compose.live.yaml`. The scripts run on the host, in the folder named. The user runs them; Claude never does.
+
+| Purpose | Command | Folder |
+| --- | --- | --- |
+| Back up the live copy | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\back-up-data.ps1 -Destination <backup folder>` | live |
+| Back up the development copy | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\back-up-data.ps1 -Copy Development -Destination <backup folder>` | development |
+| Restore into a fresh live copy | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restore-data.ps1 -Source <backup folder>` | live |
+| Release to the live copy | `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\release-live-copy.ps1 -BackupDestination <backup folder>` | live |
+
 ## Tests and type checking
 
 1. pytest with pytest-django is configured in `pyproject.toml`, with `DJANGO_SETTINGS_MODULE = "config.settings"` and tests under `tests/`. The suite runs only in the `web` container, against the Compose PostGIS server, where Django creates and destroys its test database. Tests never use SQLite and never touch the network.
 2. Tests that need the database are marked `@pytest.mark.django_db`. A test that needs a model no production app defines declares a throwaway model in an isolated app registry (`django.test.utils.isolate_apps`) and creates its table with the schema editor inside the test's transaction, as `tests/test_postgis.py` does.
 3. mypy runs in strict mode with the django-stubs plugin, configured in `pyproject.toml`. The plugin imports the settings and models, and with them GDAL, so mypy runs only in the container. Test code may leave function definitions unannotated; their bodies are still checked. Migrations and `scratch/` are excluded. WeasyPrint ships no type information, so an override ignores its missing imports and its names are untyped; no WeasyPrint class is subclassed, which strict mode would refuse.
 4. `tests/fixtures/` holds the recorded inputs: provider export rows cut from real snapshots, with every phone number, licensee name, and home name, address, and coordinate replaced by synthetic values; trimmed Census Data API responses; a recorded batch geocoder response; a recorded single-address geocoder response for Brooklyn Borough Hall, a public building; and the seven MTA feeds trimmed to the stations and stops around Borough Hall and one stop of each other borough's feed, `tests/fixtures/mta-gtfs/`, with their real rows unchanged except the calendar end dates, moved far into the future so the fixtures never expire. They hold public or synthetic data only.
-5. Autouse fixtures in `tests/conftest.py` keep every test off the network and off the real data: `http_session.build_session` and `http_session.build_lookup_session` are wrapped to mount a fake transport, `tests/ingestion/fake_transport.py`, which answers only the routes a test registers and records each request and its timeout; `RAW_DATA_DIRECTORY` and `REPORT_DIRECTORY` point at temporary directories; both secrets are blank unless a test sets synthetic values; and the three contact settings are blank, while the `contact_settings` fixture of `tests/reports/conftest.py` sets synthetic ones on request. Every WeasyPrint call in tests uses the refusing URL fetcher, so rendering never reaches the network.
-6. `tests/demographics/shapefiles.py` writes a minimal polygon shapefile with a NAD83 projection into a zip, so the boundary tests run GDAL on synthetic areas instead of the 67 MB national file.
-7. `tests/transit/gtfs_archives.py` writes GTFS zips from rows written in the tests, either minimal feeds with the required headers or the trimmed fixtures read back and changed, so each feed edge case shows the rows it relies on and no edge-case zip is committed.
-8. `tests/admin_forms.py` builds the data an admin change page posts, its main form and inline formsets included, and `tests/research/call_sheet_posts.py` does the same for the call sheet.
-9. django-stubs declares `ModelAdmin`, `TabularInline`, and `ModelForm` generic, but those classes cannot be subscripted at runtime. Each `admin.py` therefore defines its parameterized base classes under `if TYPE_CHECKING:` and the plain classes otherwise, which keeps strict typing without a runtime dependency or `type: ignore` comments.
-10. Layout inspection renders reports and teasers to check how they look. `tests/reports/test_layout_inspection.py` is marked `layout_inspection`, which `addopts` deselects, so the normal run skips it. It generates four reports on synthetic data in the test database in one test, six teasers in a parametrized test, one transaction per teaser case so no case counts another's competitors, and two repeat reports, `repeat-dense-market` and `repeat-nothing-verified-again`, in a parametrized test with one transaction per case. The four reports share a dense synthetic transit network: six station groups with long names and up to ten lines, and eighteen bus lines; the final report also lists a competitor without a location. The teaser cases are a dense market of 74 competitors with long names, a 255-character organization name, and long contact settings; one competitor; a target outside every tabulation area; no Census vintage; unpublished and incomplete capacities; and an own competitor with home-based kinds. It copies the PDFs into `scratch/report-inspection/`, the teasers as `teaser-<case>.pdf` and the repeat reports as `<case>.pdf`, where they remain:
+5. Autouse fixtures in `tests/conftest.py` keep every test off the network and off the real data: `http_session.build_session` and `http_session.build_lookup_session` are wrapped to mount a fake transport, `tests/ingestion/fake_transport.py`, which answers only the routes a test registers and records each request and its timeout; `RAW_DATA_DIRECTORY` and `REPORT_DIRECTORY` point at temporary directories; `STATIC_ROOT` points at an existing temporary directory, so WhiteNoise never warns about a missing one and `collectstatic` never writes into the repository; both secrets are blank unless a test sets synthetic values; and the three contact settings are blank, while the `contact_settings` fixture of `tests/reports/conftest.py` sets synthetic ones on request. Every WeasyPrint call in tests uses the refusing URL fetcher, so rendering never reaches the network.
+6. `tests/config/test_settings.py` executes the settings module with `runpy` under each value of `DJANGO_BEHIND_HTTPS_PROXY`, without touching the configured settings, and serves collected static files through the test client with debug mode off, as the live copy does.
+7. `tests/demographics/shapefiles.py` writes a minimal polygon shapefile with a NAD83 projection into a zip, so the boundary tests run GDAL on synthetic areas instead of the 67 MB national file.
+8. `tests/transit/gtfs_archives.py` writes GTFS zips from rows written in the tests, either minimal feeds with the required headers or the trimmed fixtures read back and changed, so each feed edge case shows the rows it relies on and no edge-case zip is committed.
+9. `tests/admin_forms.py` builds the data an admin change page posts, its main form and inline formsets included, and `tests/research/call_sheet_posts.py` does the same for the call sheet.
+10. django-stubs declares `ModelAdmin`, `TabularInline`, and `ModelForm` generic, but those classes cannot be subscripted at runtime. Each `admin.py` therefore defines its parameterized base classes under `if TYPE_CHECKING:` and the plain classes otherwise, which keeps strict typing without a runtime dependency or `type: ignore` comments.
+11. Layout inspection renders reports and teasers to check how they look. `tests/reports/test_layout_inspection.py` is marked `layout_inspection`, which `addopts` deselects, so the normal run skips it. It generates four reports on synthetic data in the test database in one test, six teasers in a parametrized test, one transaction per teaser case so no case counts another's competitors, and two repeat reports, `repeat-dense-market` and `repeat-nothing-verified-again`, in a parametrized test with one transaction per case. The four reports share a dense synthetic transit network: six station groups with long names and up to ten lines, and eighteen bus lines; the final report also lists a competitor without a location. The teaser cases are a dense market of 74 competitors with long names, a 255-character organization name, and long contact settings; one competitor; a target outside every tabulation area; no Census vintage; unpublished and incomplete capacities; and an own competitor with home-based kinds. It copies the PDFs into `scratch/report-inspection/`, the teasers as `teaser-<case>.pdf` and the repeat reports as `<case>.pdf`, where they remain:
 
     ```powershell
     docker compose run --rm web pytest -m layout_inspection tests/reports/test_layout_inspection.py
     ```
 
     `docker compose run --rm web pdftoppm -png -r 110 scratch/report-inspection/<name>.pdf scratch/report-inspection/<name>` turns each page into an image, `pdffonts` lists the embedded fonts, and `pdfinfo` the metadata and page size. No local data is used.
-11. ruff runs on the host and is configured in `pyproject.toml`. Its rule set enforces the `CLAUDE.md` rules that have a linter equivalent, among them timezone-aware datetimes, no `print`, annotated signatures outside tests, no SQL built by string formatting, explicit HTTP timeouts, and no hard-coded secrets. Migrations are excluded from linting and formatting.
+12. ruff runs on the host and is configured in `pyproject.toml`. Its rule set enforces the `CLAUDE.md` rules that have a linter equivalent, among them timezone-aware datetimes, no `print`, annotated signatures outside tests, no SQL built by string formatting, explicit HTTP timeouts, and no hard-coded secrets. Migrations are excluded from linting and formatting.
