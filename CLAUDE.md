@@ -19,6 +19,7 @@ The software exists to make that work fast and repeatable. It is built in this o
 3. Report generator: produce the client report as a PDF from the database.
 4. Teaser reports: a one-page preview for a prospect's address, used in sales outreach.
 5. Price history: every recorded observation is kept with its date and source, enabling repeat reports and subscriptions.
+6. Transit: ingest public subway and bus stop data into the same database, and add each competitor's transit access to the client report.
 
 Prefer designs that keep later steps open, but do not build ahead of the current specification.
 
