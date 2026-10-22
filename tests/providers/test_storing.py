@@ -6,6 +6,7 @@ import pytest
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 
+from axisence.ingestion.coordinates import Coordinates
 from axisence.ingestion.errors import IngestionError
 from axisence.providers.geocoding import geocoding_request_address
 from axisence.providers.models import (
@@ -17,7 +18,7 @@ from axisence.providers.models import (
     ReviewFlagReason,
     ReviewFlagState,
 )
-from axisence.providers.parsing import Coordinates, ParseResult
+from axisence.providers.parsing import ParseResult
 from axisence.providers.storing import store_provider_records
 from tests.providers.factories import make_competitor, make_run, provider_record
 

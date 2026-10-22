@@ -13,6 +13,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+from axisence.ingestion.coordinates import Coordinates, is_inside_new_york_state
 from axisence.ingestion.errors import IngestionError
 from axisence.providers import normalization
 from axisence.providers.models import (
@@ -26,19 +27,8 @@ MAXIMUM_TEXT_LENGTH = 255
 MAXIMUM_COUNT = 2_147_483_647
 UNKNOWN_COUNT_MARKER = "NO DATA"
 
-NEW_YORK_STATE_MINIMUM_LONGITUDE = Decimal("-79.8")
-NEW_YORK_STATE_MAXIMUM_LONGITUDE = Decimal("-71.8")
-NEW_YORK_STATE_MINIMUM_LATITUDE = Decimal("40.4")
-NEW_YORK_STATE_MAXIMUM_LATITUDE = Decimal("45.1")
-
 _DIGITS = re.compile(r"[0-9]+")
 _US_DATE = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4})$")
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class Coordinates:
-    longitude: Decimal
-    latitude: Decimal
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -122,18 +112,6 @@ class ParseResult:
     # Identifiers whose rows were all skipped for repeating; their providers stay as
     # they are, neither updated nor marked missing.
     repeated_identifiers: frozenset[str]
-
-
-def is_inside_new_york_state(coordinates: Coordinates) -> bool:
-    """Return whether the point lies in the state's bounding box, edges included."""
-    return (
-        NEW_YORK_STATE_MINIMUM_LONGITUDE
-        <= coordinates.longitude
-        <= NEW_YORK_STATE_MAXIMUM_LONGITUDE
-        and NEW_YORK_STATE_MINIMUM_LATITUDE
-        <= coordinates.latitude
-        <= NEW_YORK_STATE_MAXIMUM_LATITUDE
-    )
 
 
 def read_export(path: Path, required_headers: Sequence[str]) -> list[dict[str, str]]:

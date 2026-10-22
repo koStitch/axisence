@@ -9,7 +9,13 @@ from django.db.models import Max, Min, Q
 
 from axisence.ingestion.models import IngestionRun, IngestionSource
 from axisence.providers.models import ProviderKind
-from axisence.reports import changes, competitors, listed_competitors, provider_runs
+from axisence.reports import (
+    changes,
+    competitors,
+    listed_competitors,
+    provider_runs,
+    transit_access,
+)
 from axisence.reports.changes import ChangesSection
 from axisence.reports.competitors import LoadedCompetitor, VerifiedData
 from axisence.reports.demographics import (
@@ -17,6 +23,7 @@ from axisence.reports.demographics import (
     load_demographics,
     survey_description,
 )
+from axisence.reports.errors import ReportRefusedError
 from axisence.reports.formatting import (
     format_count,
     format_radius,
@@ -32,6 +39,7 @@ from axisence.reports.prices import (
     has_current_price,
 )
 from axisence.reports.schematic_map import ReportMap, build_report_map
+from axisence.reports.transit_access import TransitSection, TransitTexts
 from axisence.research.current_values import CurrentValues, compute_current_values
 from axisence.research.distances import format_miles
 from axisence.research.jobs import tabulation_area_code
@@ -79,6 +87,7 @@ class CompetitorEntry:
     ages_served: str
     facility_statuses: tuple[str, ...]
     is_school_based: bool
+    transit: TransitTexts
     research_outcome: str
     verified: VerifiedData | None
 
@@ -106,6 +115,7 @@ class SourcesSection:
     ny_state_as_of: str
     nyc_health_as_of: str
     census_line: str
+    transit_line: str
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -121,6 +131,7 @@ class ReportContent:
     report_map: ReportMap
     competitors: tuple[CompetitorEntry, ...]
     comparison_rows: tuple[ComparisonRow, ...]
+    transit: TransitSection
     demographics: DemographicsSection
     reported_closed: tuple[ClosedCompetitorEntry, ...]
     sources: SourcesSection
@@ -133,6 +144,7 @@ class BuiltReport:
     tabulation_area_code: str
     ny_state_provider_run: IngestionRun | None
     nyc_health_provider_run: IngestionRun | None
+    transit_run: IngestionRun | None
     compared_report: Report | None
     listed_competitors: tuple[ListedCompetitorRecord, ...]
 
@@ -172,6 +184,10 @@ def build_report(
     )
     area_code = tabulation_area_code(job.target_point)
     demographics = load_demographics(area_code)
+    transit_run = transit_access.load_latest_transit_run(cut_off)
+    if transit_run is None:
+        raise ReportRefusedError(transit_access.NO_TRANSIT_RUN_MESSAGE)
+    transit = transit_access.build_transit_access(job.target_point, main)
     runs_by_source = provider_runs.load_latest_provider_runs(cut_off)
     research_period = (
         Contact.objects.filter(job=job, entered_at__lte=cut_off)
@@ -214,6 +230,7 @@ def build_report(
                 number,
                 loaded,
                 current_by_id[loaded.displayed.competitor.pk],
+                transit.texts_by_competitor_id[loaded.displayed.competitor.pk],
                 job=job,
                 is_draft=is_draft,
             )
@@ -225,6 +242,7 @@ def build_report(
             )
             for number, loaded in numbered
         ),
+        transit=transit.section,
         demographics=demographics.section,
         reported_closed=tuple(
             ClosedCompetitorEntry(
@@ -244,6 +262,7 @@ def build_report(
                 if demographics.vintage is None
                 else f"US Census Bureau, {survey_description(demographics.vintage)}."
             ),
+            transit_line=transit_access.sources_line(transit_run),
         ),
     )
     return BuiltReport(
@@ -252,6 +271,7 @@ def build_report(
         tabulation_area_code=area_code or "",
         ny_state_provider_run=ny_state_run,
         nyc_health_provider_run=nyc_health_run,
+        transit_run=transit_run,
         compared_report=compared_report,
         listed_competitors=listed_competitors.records_of(main, closed),
     )
@@ -409,6 +429,7 @@ def _competitor_entry(
     number: int,
     loaded: LoadedCompetitor,
     current: CurrentValues,
+    transit: TransitTexts,
     *,
     job: ResearchJob,
     is_draft: bool,
@@ -425,6 +446,7 @@ def _competitor_entry(
         ages_served=competitors.ages_served_text(loaded),
         facility_statuses=loaded.labels.facility_statuses,
         is_school_based=loaded.labels.is_school_based,
+        transit=transit,
         research_outcome=competitors.research_outcome_text(
             loaded, current, is_draft=is_draft
         ),

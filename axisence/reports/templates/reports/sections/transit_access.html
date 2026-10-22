@@ -1,0 +1,24 @@
+<section>
+  <h2>Transit access</h2>
+  <table class="transit">
+    <thead>
+      <tr>
+        <th class="number-column">No.</th>
+        <th class="location-column">Location</th>
+        <th class="subway-column">Subway within 0.5 mi</th>
+        <th>Bus lines within 0.25 mi</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in report.transit.rows %}
+        <tr>
+          <td>{{ row.number }}</td>
+          <td>{{ row.location }}</td>
+          <td>{% for entry in row.texts.subway_entries %}<span class="transit-entry">{{ entry }}</span>{% endfor %}</td>
+          <td>{% for entry in row.texts.bus_entries %}<span class="bus-entry">{{ entry }}</span>{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="note">Straight-line distances, not walking routes. Lines scheduled to stop between 7 a.m. and 7 p.m. on weekdays.</p>
+</section>

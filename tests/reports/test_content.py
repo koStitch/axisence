@@ -23,6 +23,7 @@ from axisence.research.models import (
     PricePeriod,
     ResearchStatus,
 )
+from axisence.transit.models import TransitMode
 from tests.providers.factories import make_competitor, make_provider, make_researcher
 from tests.reports.factories import (
     add_definitions,
@@ -42,6 +43,7 @@ from tests.research.factories import (
     make_observation,
     point_north_of,
 )
+from tests.transit.factories import make_transit_line, make_transit_stop
 
 pytestmark = pytest.mark.django_db
 
@@ -650,16 +652,33 @@ def _add_researched_competitors(job, researcher, count, first_miles):
     return competitors
 
 
+def _add_transit(count, first_miles):
+    """Add a station and a bus stop, each with a line of its own, at each of count
+    distances due north of Borough Hall.
+    """
+    for index in range(count):
+        miles = first_miles + 0.05 * index
+        for mode in TransitMode:
+            make_transit_stop(
+                mode=mode,
+                published_stop_id=f"{mode}-{miles:.2f}",
+                point=point_north_of(BOROUGH_HALL, miles),
+                lines=[make_transit_line(mode, f"Synthetic {miles:.2f}", index)],
+            )
+
+
 def test_building_runs_a_fixed_number_of_queries(
     job, researcher, django_assert_num_queries
 ):
     make_census_2024(make_area("11201", BOROUGH_HALL))
     _add_researched_competitors(job, researcher, 2, 0.1)
+    _add_transit(2, 0.12)
     _build(job)
     with CaptureQueriesContext(connection) as small_report:
         _build(job)
 
     receiving, *_ = _add_researched_competitors(job, researcher, 5, 0.3)
+    _add_transit(8, 0.32)
     merged = make_located_competitor(
         point_north_of(BOROUGH_HALL, 0.9), name="Synthetic Merged"
     )

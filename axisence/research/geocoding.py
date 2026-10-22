@@ -12,8 +12,8 @@ from decimal import Decimal
 import requests
 
 from axisence.ingestion import http_session
+from axisence.ingestion.coordinates import Coordinates, is_inside_new_york_state
 from axisence.providers.geocoding import GEOCODER_BENCHMARK
-from axisence.providers.parsing import Coordinates, is_inside_new_york_state
 from axisence.research.models import ADDRESS_MAXIMUM_LENGTH, TargetLookupOutcome
 
 logger = logging.getLogger(__name__)

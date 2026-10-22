@@ -49,6 +49,8 @@ RESEARCHERS_PERMISSIONS = {
     # Granted by subscriptions.0002_grant_subscription_permissions_to_researchers.
     ("subscriptions", "view_subscription"),
     ("subscriptions", "prepare_repeat_job"),
+    # Granted by reports.0008_grant_transit_stop_permission_to_researchers.
+    ("transit", "view_transitstop"),
 }
 
 

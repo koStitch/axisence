@@ -1,6 +1,7 @@
 """Factories for report-ready and teaser-ready jobs, report rows and their listed
 competitors, staff users, contact settings, Census figures, provider runs, and
-research values, all synthetic.
+research values, all synthetic. Every report job comes with a succeeded transit run,
+which client reports require.
 """
 
 import itertools
@@ -44,6 +45,7 @@ from tests.research.factories import (
     make_observation,
     point_north_of,
 )
+from tests.transit.factories import ensure_transit_run
 
 SYNTHETIC_WEBSITE_URL = "https://axisence.example/previews"
 SYNTHETIC_CONTACT_EMAIL = "previews@axisence.example"
@@ -88,6 +90,7 @@ _FIGURE_FIELD_NAMES = (
 
 
 def make_report_job(*, researcher, status=JobStatus.RESEARCHING, **fields):
+    ensure_transit_run()
     return make_job(
         researcher=researcher,
         point=BOROUGH_HALL,

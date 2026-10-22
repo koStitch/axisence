@@ -7,6 +7,7 @@ from django.contrib.gis.geos import Point
 from django.utils import timezone
 
 from axisence.ingestion import http_session
+from axisence.ingestion.coordinates import Coordinates
 from axisence.ingestion.models import IngestionSnapshot, SnapshotKind
 from axisence.providers import geocoding
 from axisence.providers.models import (
@@ -16,7 +17,6 @@ from axisence.providers.models import (
     Provider,
     ProviderSource,
 )
-from axisence.providers.parsing import Coordinates
 from tests.fixture_files import fixture_bytes
 from tests.providers.factories import make_competitor, make_provider, make_run
 from tests.providers.geocoder_fakes import (

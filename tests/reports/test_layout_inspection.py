@@ -37,6 +37,8 @@ from axisence.research.models import (
     PricePeriod,
     ResearchStatus,
 )
+from axisence.transit.combining import natural_order_key
+from axisence.transit.models import TransitMode
 from tests.providers.factories import make_competitor, make_provider, make_researcher
 from tests.reports.factories import (
     add_definitions,
@@ -57,6 +59,7 @@ from tests.research.factories import (
     make_located_competitor,
     make_observation,
 )
+from tests.transit.factories import make_transit_line, make_transit_stop
 
 pytestmark = pytest.mark.django_db
 
@@ -73,6 +76,59 @@ GRID_CODES = (
 )
 # Moves each shared corner of the grid a little, so the areas are irregular.
 CORNER_SHIFTS = (0.0, 0.12, -0.08, 0.05)
+# The subway's route_sort_order of each line the synthetic stations serve.
+SUBWAY_LINE_POSITIONS = (
+    ("B", 4),
+    ("D", 5),
+    ("N", 13),
+    ("Q", 14),
+    ("R", 15),
+    ("W", 16),
+    ("2", 21),
+    ("3", 22),
+    ("4", 23),
+    ("5", 24),
+)
+ALL_SUBWAY_LINES = tuple(name for name, _ in SUBWAY_LINE_POSITIONS)
+# Each group: its name, distance, bearing, and the lines of each member.
+STATION_GROUPS = (
+    (
+        "Synthetic Atlantic Av-Barclays Ctr-Flatbush Av Interchange",
+        0.12,
+        40,
+        (("2", "3", "4", "5"), ("B", "D", "N", "Q", "R", "W")),
+    ),
+    (
+        "Synthetic Borough Hall-Court St-Joralemon St Transfer Complex",
+        0.2,
+        200,
+        (("2", "3", "4", "5"), ("N", "R", "W")),
+    ),
+    ("Synthetic Jay St-MetroTech", 0.3, 100, (("B", "D", "N", "Q", "R"),)),
+    ("Synthetic DeKalb Av", 0.42, 300, (("B", "Q", "R"),)),
+    ("Synthetic Hoyt-Schermerhorn Sts", 0.5, 160, (("2", "3"),)),
+    ("Synthetic Clark St-Brooklyn Heights Promenade", 0.58, 330, (ALL_SUBWAY_LINES,)),
+)
+BUS_LINE_NAMES = (
+    "B25",
+    "B26",
+    "B38",
+    "B41",
+    "B45",
+    "B52",
+    "B54",
+    "B57",
+    "B61",
+    "B62",
+    "B63",
+    "B65",
+    "B67",
+    "B103",
+    "B44-SBS",
+    "B46-SBS",
+    "BM1",
+    "BM2",
+)
 
 
 def _point_at(origin, miles, bearing_degrees):
@@ -308,7 +364,55 @@ def _final_every_state_job(researcher):
     add_price(
         contact, toddlers, drop_in, "18", PricePeriod.HOURLY, includes_discounts=True
     )
+
+    unlocated = make_competitor(
+        display_name="Synthetic Unlocated Center",
+        street_address="100 Example Street",
+        location=None,
+    )
+    make_provider(original_name="Synthetic Unlocated Center", competitor=unlocated)
+    add_job_competitor(job, unlocated, distance_meters=None)
     return job
+
+
+def _make_transit_network():
+    """Store a dense synthetic network around Borough Hall: six station groups within
+    0.6 mi, two of them of two members a few meters apart, with long names and up to
+    ten lines, and eighteen bus lines on a ring of sixteen stops 0.05 to 0.2 mi away.
+    """
+    subway_lines = {
+        name: make_transit_line(TransitMode.SUBWAY, name, position)
+        for name, position in SUBWAY_LINE_POSITIONS
+    }
+    for index, (name, miles, bearing, member_lines) in enumerate(STATION_GROUPS):
+        group_key = "+".join(f"S{index}{member}" for member in range(len(member_lines)))
+        point = _point_at(BOROUGH_HALL, miles, bearing)
+        for member, line_names in enumerate(member_lines):
+            make_transit_stop(
+                mode=TransitMode.SUBWAY,
+                published_stop_id=f"S{index}{member}",
+                # The second member lies about 6 meters east of the first.
+                point=_point_at(point, 0.004 * member, 90),
+                name=name,
+                lines=[subway_lines[line_name] for line_name in line_names],
+                station_group_key=group_key,
+            )
+    bus_lines = [
+        make_transit_line(TransitMode.BUS, name, position)
+        for position, name in enumerate(
+            sorted(BUS_LINE_NAMES, key=natural_order_key), start=1
+        )
+    ]
+    for index in range(16):
+        make_transit_stop(
+            mode=TransitMode.BUS,
+            published_stop_id=f"9{index:05d}",
+            point=_point_at(BOROUGH_HALL, 0.05 + 0.01 * index, index * 22.5),
+            lines=[
+                bus_lines[(index + offset) % len(bus_lines)]
+                for offset in (0, 2, 5, 9, 13)
+            ],
+        )
 
 
 def _draft_in_progress_job(researcher):
@@ -389,6 +493,7 @@ def test_render_the_inspection_reports(settings):
     make_provider_run(
         IngestionSource.NYC_HEALTH_PROVIDERS, finished_at=now - timedelta(days=2)
     )
+    _make_transit_network()
     target_directory = Path(settings.BASE_DIR) / "scratch" / "report-inspection"
     target_directory.mkdir(parents=True, exist_ok=True)
 

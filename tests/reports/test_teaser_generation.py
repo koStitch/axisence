@@ -89,6 +89,8 @@ def test_a_teaser_is_generated_stored_and_recorded(
     assert teaser.tabulation_area_code == "11201"
     assert teaser.ny_state_provider_run == ny_state_run
     assert teaser.nyc_health_provider_run == nyc_health_run
+    # The job's factory loaded a transit run, which a teaser never reads.
+    assert teaser.transit_run is None
     assert teaser.file_name == f"market-preview-{teaser.pk}.pdf"
     assert teaser.size_bytes == len(stored)
     assert teaser.sha256 == hashlib.sha256(stored).hexdigest()

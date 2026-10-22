@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "axisence.ingestion",
     "axisence.providers",
     "axisence.demographics",
+    "axisence.transit",
     "axisence.research",
     "axisence.reports",
     "axisence.subscriptions",

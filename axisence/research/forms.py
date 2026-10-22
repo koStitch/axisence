@@ -14,8 +14,8 @@ from django.urls import reverse
 from django.utils.datastructures import MultiValueDict
 
 from axisence.accounts.models import User
+from axisence.ingestion.coordinates import Coordinates, is_inside_new_york_state
 from axisence.providers.models import Competitor, ProviderKind
-from axisence.providers.parsing import Coordinates, is_inside_new_york_state
 from axisence.research.models import (
     DESCRIPTION_WARNING,
     RESEARCHERS_GROUP_NAME,

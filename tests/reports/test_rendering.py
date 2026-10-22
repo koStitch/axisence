@@ -21,9 +21,16 @@ from axisence.research.models import (
     PersonRole,
     PricePeriod,
 )
+from axisence.transit.models import TransitMode
 from tests.providers.factories import make_researcher
 from tests.reports.factories import add_definitions, add_price, make_ready_job
-from tests.research.factories import BOROUGH_HALL, make_contact, make_observation
+from tests.research.factories import (
+    BOROUGH_HALL,
+    make_contact,
+    make_observation,
+    point_north_of,
+)
+from tests.transit.factories import make_transit_line, make_transit_stop
 
 pytestmark = pytest.mark.django_db
 
@@ -105,6 +112,17 @@ def test_personal_and_internal_data_never_reach_the_report(caplog):
         researcher=generating_user,
         reason=RETRACTION_MARKER,
     )
+    for mode, stop_id, name, line_name in (
+        (TransitMode.SUBWAY, "901", "Synthetic Rendering Station", "A"),
+        (TransitMode.BUS, "900001", "Synthetic Rendering Bus Stop", "B900"),
+    ):
+        make_transit_stop(
+            mode=mode,
+            published_stop_id=stop_id,
+            point=point_north_of(BOROUGH_HALL, 0.05),
+            name=name,
+            lines=[make_transit_line(mode, line_name, 1)],
+        )
 
     with caplog.at_level(logging.DEBUG):
         report = generation.generate_report(job=job, generated_by=generating_user)
@@ -115,6 +133,10 @@ def test_personal_and_internal_data_never_reach_the_report(caplog):
     assert f"{BOROUGH_HALL.x:.4f}" not in html
     assert f"{BOROUGH_HALL.y:.4f}" not in html
     assert "$2,100 per month" in html
+    # The target is named only by its label; its transit lists by name and distance.
+    assert "<td>Target location</td>" in html
+    assert "Synthetic Rendering Station: A (0.05 mi)" in html
+    assert '<span class="bus-entry">B900 (0.05 mi)</span>' in html
     metadata = HTML(string=html, url_fetcher=_refusing_fetcher()).render().metadata
     assert metadata.title == "Axisence competitor analysis, report 41"
     assert not metadata.authors

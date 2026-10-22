@@ -8,6 +8,7 @@ from django.db.models import QuerySet
 from django.http import HttpRequest
 
 from axisence.demographics.models import CensusFigure, CensusVariable, TabulationArea
+from axisence.ingestion.view_only_admin import ViewOnlyAdminMixin
 
 # django-stubs declares ModelAdmin generic, but it has no runtime __class_getitem__,
 # so the parameterized base exists only for the type checker.
@@ -19,23 +20,6 @@ else:
     TabulationAreaAdminBase = admin.ModelAdmin
     CensusVariableAdminBase = admin.ModelAdmin
     CensusFigureAdminBase = admin.ModelAdmin
-
-
-class _ViewOnlyAdminMixin:
-    """Ingested data changes only through the pipeline, never in the admin."""
-
-    def has_add_permission(self, request: HttpRequest) -> bool:
-        return False
-
-    def has_change_permission(
-        self, request: HttpRequest, obj: object | None = None
-    ) -> bool:
-        return False
-
-    def has_delete_permission(
-        self, request: HttpRequest, obj: object | None = None
-    ) -> bool:
-        return False
 
 
 class TabulationAreaBoundaryListFilter(admin.SimpleListFilter):
@@ -77,7 +61,7 @@ class CensusFigureVintageListFilter(admin.SimpleListFilter):
 
 
 @admin.register(TabulationArea)
-class TabulationAreaAdmin(_ViewOnlyAdminMixin, TabulationAreaAdminBase):
+class TabulationAreaAdmin(ViewOnlyAdminMixin, TabulationAreaAdminBase):
     list_display = ("code", "has_boundary")
     list_filter = (TabulationAreaBoundaryListFilter,)
     search_fields = ("code",)
@@ -103,14 +87,14 @@ class TabulationAreaAdmin(_ViewOnlyAdminMixin, TabulationAreaAdminBase):
 
 
 @admin.register(CensusVariable)
-class CensusVariableAdmin(_ViewOnlyAdminMixin, CensusVariableAdminBase):
+class CensusVariableAdmin(ViewOnlyAdminMixin, CensusVariableAdminBase):
     list_display = ("code", "vintage", "table", "estimate_label")
     list_filter = ("vintage", "table")
     search_fields = ("code", "estimate_label", "percent_label")
 
 
 @admin.register(CensusFigure)
-class CensusFigureAdmin(_ViewOnlyAdminMixin, CensusFigureAdminBase):
+class CensusFigureAdmin(ViewOnlyAdminMixin, CensusFigureAdminBase):
     list_display = (
         "tabulation_area",
         "variable_code",

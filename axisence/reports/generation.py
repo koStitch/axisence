@@ -55,6 +55,9 @@ class _RecordedSources(Protocol):
     def nyc_health_provider_run(self) -> IngestionRun | None: ...
 
     @property
+    def transit_run(self) -> IngestionRun | None: ...
+
+    @property
     def compared_report(self) -> Report | None: ...
 
     @property
@@ -216,6 +219,7 @@ def _generate[BuiltT: _RecordedSources](
                 tabulation_area_code=built.tabulation_area_code,
                 ny_state_provider_run=built.ny_state_provider_run,
                 nyc_health_provider_run=built.nyc_health_provider_run,
+                transit_run=built.transit_run,
                 file_name=stored_file.file_name,
                 size_bytes=stored_file.size_bytes,
                 sha256=stored_file.sha256,

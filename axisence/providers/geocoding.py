@@ -20,6 +20,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from axisence.ingestion import http_session, runs, snapshots
+from axisence.ingestion.coordinates import Coordinates, is_inside_new_york_state
 from axisence.ingestion.models import IngestionRun, SnapshotKind
 from axisence.ingestion.redaction import redact_secrets
 from axisence.providers import grouping, normalization
@@ -30,7 +31,6 @@ from axisence.providers.models import (
     Provider,
     ProviderSource,
 )
-from axisence.providers.parsing import Coordinates, is_inside_new_york_state
 
 logger = logging.getLogger(__name__)
 

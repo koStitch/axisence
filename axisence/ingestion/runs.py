@@ -72,9 +72,16 @@ def start_run(
 
 
 def record_snapshot(
-    run: IngestionRun, kind: SnapshotKind, snapshot: SavedSnapshot
+    run: IngestionRun,
+    kind: SnapshotKind,
+    snapshot: SavedSnapshot,
+    *,
+    response_etag: str = "",
+    response_last_modified: str = "",
 ) -> IngestionSnapshot:
-    """Record a snapshot the run saved or re-ingested."""
+    """Record a snapshot the run saved or re-ingested, with the response headers a
+    conditional request needs next time.
+    """
     return IngestionSnapshot.objects.create(
         run=run,
         kind=kind,
@@ -82,6 +89,8 @@ def record_snapshot(
         size_bytes=snapshot.size_bytes,
         sha256=snapshot.sha256,
         fetched_at=snapshot.fetched_at,
+        response_etag=response_etag,
+        response_last_modified=response_last_modified,
     )
 
 

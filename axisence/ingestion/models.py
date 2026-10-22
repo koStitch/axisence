@@ -8,6 +8,7 @@ class IngestionSource(models.TextChoices):
     NYC_HEALTH_PROVIDERS = "nyc_health_providers", "NYC Health providers"
     CENSUS_DEMOGRAPHICS = "census_demographics", "Census demographics"
     CENSUS_BOUNDARIES = "census_boundaries", "Census boundaries"
+    MTA_TRANSIT = "mta_transit", "MTA transit"
 
 
 class IngestionOutcome(models.TextChoices):
@@ -24,6 +25,10 @@ class SnapshotKind(models.TextChoices):
     CENSUS_VARIABLES = "census_variables", "Census variable labels"
     TABULATION_AREA_LIST = "tabulation_area_list", "Tabulation area list"
     BOUNDARY_FILE = "boundary_file", "Boundary file"
+    GTFS_FEED = "gtfs_feed", "GTFS feed"
+
+
+RESPONSE_HEADER_MAXIMUM_LENGTH = 255
 
 
 class IngestionRun(models.Model):
@@ -85,6 +90,14 @@ class IngestionSnapshot(models.Model):
     sha256 = models.CharField(max_length=64)
     # Null when the run re-ingested a snapshot saved earlier.
     fetched_at = models.DateTimeField(null=True, blank=True)
+    # The ETag and Last-Modified headers of the response that saved the file, as sent;
+    # blank for re-recorded files and for sources that make no conditional requests.
+    response_etag = models.CharField(
+        max_length=RESPONSE_HEADER_MAXIMUM_LENGTH, blank=True
+    )
+    response_last_modified = models.CharField(
+        max_length=RESPONSE_HEADER_MAXIMUM_LENGTH, blank=True
+    )
 
     class Meta:
         ordering = ("run", "pk")

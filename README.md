@@ -78,6 +78,7 @@ Version numbers live only in the project files: `.python-version`, `pyproject.to
 | Load NYC Health providers | `docker compose run --rm web python manage.py ingest_nyc_health_providers` | container |
 | Load Census demographics | `docker compose run --rm web python manage.py ingest_census_demographics --vintage 2024` | container |
 | Load tabulation-area boundaries | `docker compose run --rm web python manage.py ingest_census_boundaries` | container |
+| Load MTA transit | `docker compose run --rm web python manage.py ingest_mta_transit` | container |
 | Generate a report | `docker compose run --rm web python manage.py generate_report <job id>` | container |
 | Generate a teaser | `docker compose run --rm web python manage.py generate_teaser <job id>` | container |
 | Tests | `docker compose run --rm web pytest` | container |
@@ -90,7 +91,7 @@ Version numbers live only in the project files: `.python-version`, `pyproject.to
 
 ## Data pipeline
 
-Four commands load public data into the local database: licensed providers from both regulators, Census demographics, and tabulation-area boundaries. Each run is recorded in the admin under Ingestion. Every download is saved unchanged under the git-ignored `data/raw/` before anything parses it, and the pipeline never modifies or deletes a saved download. Disk use is about 6 MB per NY State run, 0.6 MB per NYC Health run, 48 MB per Census vintage, and 67 MB per boundary download. The folder is pruned by hand only.
+Five commands load public data into the local database: licensed providers from both regulators, Census demographics, tabulation-area boundaries, and MTA transit stops. Each run is recorded in the admin under Ingestion. Every download is saved unchanged under the git-ignored `data/raw/` before anything parses it, and the pipeline never modifies or deletes a saved download. Disk use is about 6 MB per NY State run, 0.6 MB per NYC Health run, 48 MB per Census vintage, 67 MB per boundary download, and about 60 MB on a first transit run, then only the feeds the MTA has republished. The folder is pruned by hand only.
 
 ### Before the first run
 
@@ -118,6 +119,7 @@ Four commands load public data into the local database: licensed providers from 
 | `ingest_census_demographics --vintage <year>` | The ACS 5-year data profile tables `DP02` to `DP05` of every NY State tabulation area | Once a year, after the Census Bureau's December release of a new 5-year vintage, with `--vintage` set to that year |
 | `ingest_ny_state_providers` | Every program of the NY State OCFS Child Care Regulated Programs dataset | Weekly, and before preparing a report |
 | `ingest_nyc_health_providers` | Every program of the NYC Health Active Child Care Programs dataset | Weekly, and before preparing a report |
+| `ingest_mta_transit` | Every subway station and bus stop of New York City, with the lines that stop there on weekday daytime service | Before each batch of client reports, together with the provider commands |
 
 Nothing runs these commands automatically: run each one by hand at its cadence. Run them in this order on a first load. In the output, `<run>` is the run's number, `<timestamp>` the UTC download time, `<bytes>` a file size, and `<count>` a number that varies with the publishers' daily updates.
 
@@ -222,6 +224,56 @@ Nothing runs these commands automatically: run each one by hand at its cadence. 
 
     A first load after the NY State one reads and creates about 2,750 providers with about 1 field warning, creates about 2,200 competitors, raises about 110 review flags, and geocodes about 11 providers plus the NY State failures, which every run retries.
 
+5. Load the transit stops:
+
+    ```powershell
+    docker compose run --rm web python manage.py ingest_mta_transit
+    ```
+
+    ```text
+    MTA transit run <run> succeeded.
+    Snapshot: mta-gtfs/<timestamp>-run-<run>-gtfs_subway.zip (<bytes> bytes)
+    Snapshot: mta-gtfs/<timestamp>-run-<run>-gtfs_b.zip (<bytes> bytes)
+    Snapshot: mta-gtfs/<timestamp>-run-<run>-gtfs_bx.zip (<bytes> bytes)
+    Snapshot: mta-gtfs/<timestamp>-run-<run>-gtfs_m.zip (<bytes> bytes)
+    Snapshot: mta-gtfs/<timestamp>-run-<run>-gtfs_q.zip (<bytes> bytes)
+    Snapshot: mta-gtfs/<timestamp>-run-<run>-gtfs_si.zip (<bytes> bytes)
+    Snapshot: mta-gtfs/<timestamp>-run-<run>-gtfs_busco.zip (<bytes> bytes)
+    Created: <count>
+    Updated: 0
+    Unchanged: 0
+    Marked missing: 0
+    Reactivated: 0
+    Field warnings: <count>
+    Feed gtfs_subway.zip: downloaded
+    Feed gtfs_b.zip: downloaded
+    Feed gtfs_bx.zip: downloaded
+    Feed gtfs_m.zip: downloaded
+    Feed gtfs_q.zip: downloaded
+    Feed gtfs_si.zip: downloaded
+    Feed gtfs_busco.zip: downloaded
+    ```
+
+    A first load creates about 14,000 stops, about 500 subway stations and 13,500 bus stops, usually without field warnings. "Marked missing" counts stops the feeds no longer list, which are marked inactive and never deleted; a stop listed again is reactivated.
+
+    A run asks the MTA for each feed only if it changed since the saved download. When none changed, nothing is downloaded and the earlier downloads are read again:
+
+    ```text
+    MTA transit run <run> succeeded.
+    Snapshot: mta-gtfs/<earlier timestamp>-run-<earlier run>-gtfs_subway.zip (<bytes> bytes)
+    ...
+    Created: 0
+    Updated: 0
+    Unchanged: <count>
+    Marked missing: 0
+    Reactivated: 0
+    Field warnings: <count>
+    Feed gtfs_subway.zip: unchanged
+    ...
+    ```
+
+    The `Snapshot:` lines name the earlier downloads, one per feed, and every feed reads `unchanged`. A feed the MTA has republished reads `downloaded` and gets a new snapshot of its own.
+
 A run without geocoding candidates has no `census-geocoder` snapshot line.
 
 ### Re-running from a saved download
@@ -240,11 +292,22 @@ Re-running a provider command on the export it just fetched reports `Created: 0`
 
 A re-ingestion also re-reads the metadata saved with that export, so its `Publisher last updated:` line, and every report generated after it, give the date of the data actually loaded, however old the saved download is.
 
+`--from-latest-snapshots` re-ingests every transit feed's latest saved download without asking the MTA for anything:
+
+```powershell
+docker compose run --rm web python manage.py ingest_mta_transit --from-latest-snapshots
+```
+
+Every feed line then reads `read from the latest snapshot`, followed by `Re-ingested an existing snapshot.` in the summary. A feed without a saved download on disk fails the run with a message naming it.
+
 ### When a run fails
 
 1. The command ends with `CommandError: <source> run <run> failed: <reason>` and a non-zero exit status, and the run appears as failed in the admin.
 2. A provider run refuses to mark more than 10% of a source's active providers missing. When the publisher really removed them, run the command again with `--allow-mass-disappearance`.
 3. A missing Census key fails both Census commands, before any request, with a message naming `CENSUS_API_KEY`.
+4. A transit run refuses to mark more than 10% of the active subway stations, or of the active bus stops, inactive, and stores nothing. When the MTA really removed them, run the command again with `--allow-mass-disappearance`.
+5. A transit run fails, before storing anything, with `Fetching <feed> failed: <reason>` when a feed cannot be downloaded. Run the command again later.
+6. A transit run fails with `The feed <feed> has no weekday service running on or after <date>.` when every weekday service of that feed has ended before the MTA published new ones. Run the command again once the MTA has republished the feed; reports keep using the last succeeded transit run meanwhile.
 
 ### Reviewing competitors
 
@@ -271,7 +334,7 @@ Each researcher has an account of their own.
 4. Tick "Staff status".
 5. Under Groups, move "Researchers" to "Chosen groups", then choose "Save".
 
-Expected: the researcher logs in with that account and sees Research jobs, Job competitors, Contacts, and Observations under Research; the provider, competitor, and review flag pages with their review actions; the demographics pages read-only; Reports under Reports, with "Generate report" on the pages of eligible client report jobs and "Generate teaser" on the pages of eligible prospect jobs; and Subscriptions under Subscriptions, read-only, with "Prepare repeat job" on running subscriptions, and "Prepare repeat job" on the pages of Complete client report jobs that can be repeated.
+Expected: the researcher logs in with that account and sees Research jobs, Job competitors, Contacts, and Observations under Research; the provider, competitor, and review flag pages with their review actions; the demographics pages read-only; Transit stops under Transit, read-only; Reports under Reports, with "Generate report" on the pages of eligible client report jobs and "Generate teaser" on the pages of eligible prospect jobs; and Subscriptions under Subscriptions, read-only, with "Prepare repeat job" on running subscriptions, and "Prepare repeat job" on the pages of Complete client report jobs that can be repeated.
 
 ### Running a research job
 
@@ -362,6 +425,7 @@ While `DJANGO_LOG_LEVEL` is `INFO` or lower, the log record `Research job <job i
 | A Cancelled job cannot produce a report. | Choose "Reopen research" when the job is wanted again. |
 | This job lists no competitors. | Choose "Search competitors" and save a selection. |
 | The Census figure list for vintage `<year>` does not match the stored labels. | The Census Bureau's labels of that vintage differ from the figures a report shows. A developer checks the codes and labels and updates `axisence/reports/figure_lists.py`; every report is refused until then. |
+| Transit data has not been loaded: run ingest_mta_transit first. | No transit run has succeeded. Run `ingest_mta_transit` (Data pipeline), then generate again. |
 | The report could not be generated. | An unexpected failure. The log names the error's class and the job's number; no report or file is kept. |
 
 ### Generating again

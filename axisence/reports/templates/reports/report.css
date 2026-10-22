@@ -194,6 +194,18 @@ tbody th {
 .comparison .age-column {
   width: 0.95in;
 }
+.transit .location-column {
+  width: 1.7in;
+}
+.transit .subway-column {
+  width: 2.4in;
+}
+.transit-entry {
+  display: block;
+}
+.bus-entry {
+  white-space: nowrap;
+}
 .closed .address-column {
   width: 1.2in;
 }

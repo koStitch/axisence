@@ -39,6 +39,7 @@ _REPORT_FIELD_NAMES = (
     "tabulation_area_code",
     "ny_state_provider_run",
     "nyc_health_provider_run",
+    "transit_run",
     "file_name",
     "size_bytes",
     "sha256",

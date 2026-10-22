@@ -86,6 +86,15 @@ class Report(models.Model):
         blank=True,
         related_name="reports_reading_nyc_health_providers",
     )
+    # The latest succeeded transit run finished by the cut-off; blank for teasers and
+    # for reports generated before transit access.
+    transit_run = models.ForeignKey(
+        "ingestion.IngestionRun",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="reports_reading_transit",
+    )
     # Relative to REPORT_DIRECTORY.
     file_name = models.CharField(max_length=100, unique=True)
     size_bytes = models.PositiveBigIntegerField()

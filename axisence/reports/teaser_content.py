@@ -144,9 +144,11 @@ class BuiltTeaser:
     tabulation_area_code: str
     ny_state_provider_run: IngestionRun | None
     nyc_health_provider_run: IngestionRun | None
-    # A teaser compares with nothing and records no listed competitors.
+    # A teaser compares with nothing, records no listed competitors, and reads no
+    # transit.
     compared_report: Report | None = None
     listed_competitors: tuple[ListedCompetitorRecord, ...] = ()
+    transit_run: IngestionRun | None = None
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

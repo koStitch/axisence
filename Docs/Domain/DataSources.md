@@ -236,7 +236,65 @@ US Census Bureau American Community Survey 5-year estimates, through the Census 
 
 ## Transit
 
-MTA static GTFS feeds provide subway and bus stop locations. The MTA publishes the subway, NYCT Brooklyn buses, and MTA Bus Company buses as separate files, and the lines serving a stop come only from the large `stop_times` file. No transit data is ingested, and reports state that transit access is not covered.
+The MTA's static GTFS schedules give the subway stations and bus stops of New York City and the lines scheduled to stop at each. They cover New York City only: no LIRR, Metro-North, PATH, ferry, or NJ Transit service.
+
+### Feeds
+
+Seven public zip files at `https://rrgtfsfeeds.s3.amazonaws.com/<file>`, without a key:
+
+| File | Covers |
+| --- | --- |
+| `gtfs_subway.zip` | The subway and the Staten Island Railway |
+| `gtfs_b.zip`, `gtfs_bx.zip`, `gtfs_m.zip`, `gtfs_q.zip`, `gtfs_si.zip` | New York City Transit buses, one file per borough: Brooklyn, the Bronx, Manhattan, Queens, and Staten Island |
+| `gtfs_busco.zip` | MTA Bus Company buses, across boroughs |
+
+1. The MTA also publishes a supplemented subway feed, `gtfs_supplemented.zip`, which adds the planned service changes of the coming days. Those are temporary diversions, not the regular service a report describes, so it is not read.
+2. The host sends `ETag`, with its surrounding double quotes, and `Last-Modified` headers. A request whose `If-None-Match` repeats the ETag verbatim is answered with HTTP 304 and no body while the file is unchanged.
+3. Every zip holds `agency.txt`, `calendar.txt`, `calendar_dates.txt`, `feed_info.txt`, `routes.txt`, `shapes.txt`, `stop_times.txt`, `stops.txt`, and `trips.txt`; the subway's also holds `transfers.txt`. The pipeline reads these members and columns, and ignores every other member and column:
+
+    | Member | Columns read | Feeds |
+    | --- | --- | --- |
+    | `stops.txt` | `stop_id`, `stop_name`, `stop_lat`, `stop_lon` | all |
+    | `stops.txt` | `location_type`, `parent_station` | subway |
+    | `routes.txt` | `route_id`, `route_short_name`, `route_type` | all |
+    | `routes.txt` | `route_sort_order` | subway |
+    | `trips.txt` | `route_id`, `service_id`, `trip_id` | all |
+    | `calendar.txt` | `service_id`, `monday` to `friday`, `end_date` | all |
+    | `stop_times.txt` | `trip_id`, `stop_id`, `arrival_time`, `departure_time`, and `pickup_type` and `drop_off_type` when present | all |
+    | `transfers.txt` | `from_stop_id`, `to_stop_id` | subway |
+
+4. Column order differs between feeds, so columns are found by header name. The subway's `stop_times.txt` has no `pickup_type` or `drop_off_type` column: every subway stop time lets riders on and off.
+5. `stop_times.txt` is by far the largest member and the only source of the lines that stop at a stop. It is streamed from the zip, never extracted.
+
+### Stations and stops
+
+1. A subway station is a `stops.txt` row with `location_type` `1`. Its platforms are rows with a blank `location_type` and the station's ID in `parent_station`, such as `232N` and `232S` of station `232`. Stop times refer to platforms; each platform counts for its station, and only stations are stored. Rows of any other location type are ignored.
+2. `transfers.txt` lists pairs of stations joined by an in-system transfer, including a row from every station to itself, which joins nothing. Some complexes join stations of one name, such as Borough Hall `232` (2, 3) and `423` (4, 5), or Jay St-MetroTech `A41` (A, C, F) and `R29` (R, W). Others join differently named stations, such as Borough Hall and Court St `R28`.
+3. A station group is the stations of one name joined by transfers, directly or through each other. It is presented as one station, with the lines of all its stations; differently named stations stay apart. Its key is its stations' IDs sorted as text and joined by `+`, such as `232+423`; a station alone has its own ID.
+4. A bus stop is one row of a bus feed, usually one per side of the street, without a parent. Its `location_type` is `0` or blank.
+5. Bus feeds write coordinates with leading spaces (`  40.693578`), so every cell is trimmed before use. A row whose coordinates are blank, unparseable, or outside the NY State bounding box is skipped with a field warning, and its stop stays as stored.
+6. A bus stop served by routes of several feeds appears in each under the same ID. The New York City Transit feeds agree on its name and position; `gtfs_busco.zip` publishes a position and name text of its own for the same ID, such as `306533` at Cadman Plaza West and Montague St. The stored stop takes its name and position from the first feed holding it, in the order `gtfs_b`, `gtfs_bx`, `gtfs_m`, `gtfs_q`, `gtfs_si`, `gtfs_busco`, and its lines from every feed.
+7. Feeds cross borough lines: a borough's feed lists every stop its routes serve, wherever the stop lies, so the Queens and Manhattan feeds list stops in the Bronx. Many stop IDs begin with a digit naming a borough (`1` the Bronx, `2` Staten Island, `3` Brooklyn, `4` Manhattan, `5` Queens), but the digit does not prove where a stop lies: the Q58's stop `304841` lies in Ridgewood, Queens.
+
+### Routes and lines
+
+1. Each New York City Transit bus feed's `routes.txt` lists the routes of the whole city, while its stops and trips cover only its own routes. Lines come from trips, never from the route list.
+2. Route types: `1` subway, `2` the Staten Island Railway, `3` bus, and `711`, a shuttle bus in the extended route types, listed in the New York City Transit bus feeds. Shuttle bus routes are not lines and are never counted.
+3. Route IDs can differ from the names riders know: `B44+` is `B44-SBS`, `BX12+` is `Bx12-SBS`, `Q06` is `Q6`, `BXM1` is `BxM1`, and the subway's `GS`, `FS`, and `H` are all the shuttle `S`, while `SI` is `SIR`. A line is named by its route's `route_short_name`.
+4. A subway route whose short name is another subway route's short name followed by `X` is an express variant of that line: `FX`, `6X`, and `7X` count as the F, 6, and 7. The three shuttles keep `S`. Select Bus Service names (`B44-SBS`) and express buses (`BM1`, `BxM1`) stay as published.
+5. Subway lines are ordered by `route_sort_order`, the MTA's own order (A, C, E, B, D, F, M, G, J, Z, L, N, Q, R, W, S, 1 to 7, SIR); a line takes the smallest order of its routes. Bus lines are in natural order: by their text ignoring case, with numbers compared by value, so `B2` comes before `B11`, `B44` before `B44-SBS`, and `B103` before `BM1`.
+
+### Weekday daytime service
+
+A line counts at a stop when one of its trips is scheduled to stop there on weekday daytime service:
+
+1. The trip's service in `calendar.txt` runs on at least one weekday and its `end_date` is on or after the day of the run. `calendar_dates.txt`, which holds holidays and one-off changes, is not read.
+2. The stop time's departure, or its arrival when the departure is blank, lies from 07:00:00 to before 19:00:00. GTFS writes times after midnight as 24:00:00 and later, so they never count.
+3. A stop time that neither picks up nor drops off (`pickup_type` and `drop_off_type` both `1`) does not count, and shuttle bus routes never do.
+
+The rule matches when families travel to and from childcare. A line that stops only late at night, such as the N at Court St, or only on weekends, would mislead.
+
+The subway calendar's services end every few months and the bus calendars' a few months later, and the MTA republishes the feeds with new periods. A feed whose weekday services have all ended fails the run, naming the feed, until the MTA republishes it; reports keep the last succeeded run meanwhile.
 
 ## Mystery-shopping observations
 
@@ -286,7 +344,7 @@ A slot is what one value answers: the price of one age group on one schedule, th
 
 ## Reports
 
-A report presents a research job's competitors with their public data and research values, and the Census figures of the target location's tabulation area. A teaser presents the market around a prospect's location from public data only.
+A report presents a research job's competitors with their public data and research values, the transit near them and the target location, and the Census figures of the target location's tabulation area. A teaser presents the market around a prospect's location from public data only.
 
 ### Research values in a report
 
@@ -317,6 +375,19 @@ The comparison sets competitors side by side at the reference ages 12, 24, 36, a
 3. An empty cell says why: "not offered" when no age group contains the age, "no 5-day price" when one does but has no price on a 5-day schedule, and "not computable" when the only such prices are hourly on schedules without stated hours.
 4. A competitor without a current price reads "No verified prices".
 5. The 36-month cell notes "3-K for All seats" and the 48-month cell "Pre-K for All seats" when the competitor's current answer to that question is Yes.
+
+### Transit access
+
+A draft or final report shows the transit near the target location and near each competitor of its main list, from the latest succeeded transit run finished by its cut-off, which the report records.
+
+1. The "Transit access" section follows the tuition comparison. Its table lists the target location first, labelled "Target location" and never by its address or coordinates, then each competitor of the main list with its number. Reported-closed competitors have no row, so when every competitor is reported closed the table holds the target location alone.
+2. Each competitor's profile holds a "Transit" block under its public data, with the same two texts on two lines.
+3. Subway: the two nearest station groups within 0.5 mi, nearest first, ties by name, each as `<name>: <lines> (<distance>)`. A group stands at the distance of its nearest station and lists the lines of all its stations, in subway order, even a station of the group that lies beyond 0.5 mi.
+4. Bus: every bus line with a stop within 0.25 mi, once, at the distance of its nearest stop, as `<line> (<distance>)`, nearest first, ties in natural order. Each entry is kept whole on one line, so a long list wraps only between entries.
+5. Only active stops with at least one line count. Distances are straight lines on the ellipsoid, rounded to hundredths of a mile, and both limits include a stop exactly at them. 0.5 mi and 0.25 mi are the standard walking catchments of transit planning.
+6. Nothing in range reads "None within 0.5 mi" or "None within 0.25 mi"; a competitor without a location reads "No location".
+7. Generation refuses, after every other refusal, while no transit run has succeeded by the cut-off: "Transit data has not been loaded: run ingest_mta_transit first."
+8. Sources and method names the MTA schedules, New York City only, with the local date the run started, and defines the catchments and the weekday daytime rule. Transit outside New York City, walking routes, and schedules are not covered. Teasers show no transit.
 
 ### Repeat reports
 
@@ -414,3 +485,7 @@ These are the vintage 2024 values. The caps and the floor of `DP03_0062` appear 
 | Run | Consecutive contacts that recorded one stated value of a slot. |
 | Subscription | A client's standing order for repeat reports on a cadence, starting from one job. |
 | Due date | A date on which a subscription's next report is due, a whole number of cadences after its start date. |
+| Transit stop | A stored subway station or bus stop. |
+| Station group | Subway stations that share a name and are joined by in-system transfers, presented as one station. |
+| Line | A route as riders know it, by its rider-facing name. |
+| Catchment | The distance within which transit counts: 0.5 mi for stations and 0.25 mi for bus stops. |

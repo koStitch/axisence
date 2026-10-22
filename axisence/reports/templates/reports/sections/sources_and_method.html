@@ -6,12 +6,14 @@
     <li>NYC Department of Health and Mental Hygiene, Active NYC Health Code Regulated Child Care Programs (NYC Open Data gy3q-4tzp): {{ report.sources.nyc_health_as_of }}.</li>
     <li>{{ report.sources.census_line }}</li>
     <li>US Census Bureau 2020 ZIP Code Tabulation Area cartographic boundaries, for the map and the target location's area.</li>
+    <li>{{ report.sources.transit_line }}</li>
     <li>Axisence research: calls, website visits, and emails, each value with its date and method.</li>
   </ul>
   <h3>Definitions</h3>
   <ul>
     <li>Licensed capacity is the maximum number of children a regulator allows a provider to serve. It is not enrollment and not availability.</li>
     <li>Distances are straight lines from the target location, not walking or driving routes.</li>
+    <li>Transit access lists the two nearest subway stations within 0.5 mi and every bus line with a stop within 0.25 mi, the standard walking catchments of transit planning, as straight lines. A line counts when it is scheduled to stop there between 7 a.m. and 7 p.m. on weekdays. Stations of one name joined by an in-system transfer count as one station, at the distance of its nearest part.</li>
     <li>A ZIP Code Tabulation Area is the Census Bureau's approximation of a zip code area; it is not the zip code itself.</li>
     <li>Census margins of error are at 90% confidence.</li>
     <li>Prices are as stated by each provider, for the provider's own age groups and schedules. One provider's age groups and schedules are not assumed to match another's.</li>
@@ -19,6 +21,5 @@
     <li>Tuition comparison: each cell holds the monthly equivalents of every current price of the provider's own age groups that contain the age, from the group's youngest to its oldest age, both included, on schedules of 5 days per week.</li>
     <li>Contact methods. Call: a researcher's telephone call to the provider. Website: a researcher's reading of the provider's own website. Email: a researcher's email exchange with the provider.</li>
   </ul>
-  <p>Transit access is not covered by this report.</p>
   <p>This report is confidential to {{ report.organization_name }}.</p>
 </section>

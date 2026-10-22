@@ -6,10 +6,11 @@ from decimal import Decimal
 
 import pytest
 
+from axisence.ingestion.coordinates import Coordinates
 from axisence.ingestion.errors import IngestionError
 from axisence.providers.models import Borough, ProviderKind, ProviderSource
 from axisence.providers.ny_state import NY_STATE_REQUIRED_HEADERS, parse_ny_state_rows
-from axisence.providers.parsing import Coordinates, FieldWarning, read_export
+from axisence.providers.parsing import FieldWarning, read_export
 from tests.fixture_files import FIXTURES_DIRECTORY
 
 FIXTURE = FIXTURES_DIRECTORY / "providers" / "ny-state-export.csv"

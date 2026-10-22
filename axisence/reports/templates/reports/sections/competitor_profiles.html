@@ -15,6 +15,9 @@
       <p>Ages served: {{ competitor.ages_served }}</p>
       {% for status in competitor.facility_statuses %}<p>Facility status: {{ status }}</p>{% endfor %}
       {% if competitor.is_school_based %}<p>School-based program: its capacity is often unpublished.</p>{% endif %}
+      <h5>Transit</h5>
+      <p>Subway within 0.5 mi: {{ competitor.transit.subway_text }}</p>
+      <p>Bus lines within 0.25 mi: {% for entry in competitor.transit.bus_entries %}<span class="bus-entry">{{ entry }}</span>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
       <h4>Verified data</h4>
       {% with verified=competitor.verified %}
         {% if verified %}

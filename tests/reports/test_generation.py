@@ -10,7 +10,7 @@ from django.core.management import CommandError, call_command
 from django.utils import timezone
 
 from axisence.demographics.models import CensusVariable
-from axisence.ingestion.models import IngestionOutcome, IngestionSource
+from axisence.ingestion.models import IngestionOutcome, IngestionRun, IngestionSource
 from axisence.reports import generation, rendering, storage
 from axisence.reports.errors import ReportGenerationError, ReportRefusedError
 from axisence.reports.models import Report, ReportKind
@@ -30,6 +30,7 @@ from tests.reports.factories import (
     make_ready_job,
 )
 from tests.research.factories import BOROUGH_HALL
+from tests.transit.factories import make_transit_run
 
 pytestmark = pytest.mark.django_db
 
@@ -70,6 +71,11 @@ def test_researching_gives_a_draft_and_complete_a_final_report(
     nyc_health_run = make_provider_run(
         IngestionSource.NYC_HEALTH_PROVIDERS, finished_at=now - timedelta(days=3)
     )
+    transit_run = make_transit_run(finished_at=now - timedelta(days=2))
+    make_transit_run(
+        finished_at=now - timedelta(days=1), outcome=IngestionOutcome.FAILED
+    )
+    make_transit_run(finished_at=now + timedelta(days=1))
     job = make_ready_job(researcher=researcher)
 
     with caplog.at_level(logging.INFO, logger="axisence.reports"):
@@ -93,6 +99,7 @@ def test_researching_gives_a_draft_and_complete_a_final_report(
     assert draft.tabulation_area_code == "11201"
     assert draft.ny_state_provider_run == ny_state_run
     assert draft.nyc_health_provider_run == nyc_health_run
+    assert draft.transit_run == transit_run
     assert draft.file_name == f"report-{draft.pk}.pdf"
     assert draft.size_bytes == len(stored)
     assert draft.sha256 == hashlib.sha256(stored).hexdigest()
@@ -137,6 +144,14 @@ def _changed_label(job):
     )
 
 
+def _without_transit_runs(job):
+    IngestionRun.objects.filter(source=IngestionSource.MTA_TRANSIT).delete()
+
+
+NO_TRANSIT_RUN_MESSAGE = (
+    "Transit data has not been loaded: run ingest_mta_transit first."
+)
+
 REFUSALS = (
     ("prospect", _prospect, "Only client report jobs produce a report."),
     ("draft", _status(JobStatus.DRAFT), "A Draft job cannot produce a report."),
@@ -151,6 +166,7 @@ REFUSALS = (
         _changed_label,
         "The Census figure list for vintage 2024 does not match the stored labels.",
     ),
+    ("no transit run", _without_transit_runs, NO_TRANSIT_RUN_MESSAGE),
 )
 
 
@@ -171,6 +187,41 @@ def test_refusals_name_what_to_fix_and_leave_nothing(
     assert str(raised.value) == message
     assert not Report.objects.exists()
     assert _stored_files(report_directory) == []
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (_without_competitors, "This job lists no competitors."),
+        (
+            _changed_label,
+            "The Census figure list for vintage 2024 does not match the stored labels.",
+        ),
+    ],
+    ids=["no competitors", "changed label"],
+)
+def test_the_missing_transit_run_is_refused_after_the_other_refusals(
+    researcher, census_area, change, message
+):
+    job = make_ready_job(researcher=researcher)
+    _without_transit_runs(job)
+    change(job)
+
+    with pytest.raises(ReportRefusedError) as raised:
+        generation.generate_report(job=job, generated_by=researcher)
+
+    assert str(raised.value) == message
+
+
+def test_a_transit_run_finished_after_the_cut_off_does_not_count(researcher):
+    job = make_ready_job(researcher=researcher)
+    _without_transit_runs(job)
+    make_transit_run(finished_at=timezone.now() + timedelta(days=1))
+
+    with pytest.raises(ReportRefusedError) as raised:
+        generation.generate_report(job=job, generated_by=researcher)
+
+    assert str(raised.value) == NO_TRANSIT_RUN_MESSAGE
 
 
 def test_a_failure_logs_only_its_class_and_job_and_leaves_nothing(
